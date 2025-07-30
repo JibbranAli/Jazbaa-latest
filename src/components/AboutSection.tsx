@@ -10,11 +10,11 @@ const AboutSection = () => {
   });
 
   const stats = [
-    { number: '134', label: 'Startups', icon: <Building className="text-[#e86888]" size={24} /> },
-    { number: '500+', label: 'Creators', icon: <Users className="text-[#7d7eed]" size={24} /> },
-    { number: '100+', label: 'Colleges', icon: <Award className="text-[#e86888]" size={24} /> },
-    { number: '20+', label: 'States', icon: <MapPin className="text-[#7d7eed]" size={24} /> },
-    { number: '9', label: 'Sectors', icon: <Target className="text-[#e86888]" size={24} /> },
+    { number: '134', label: 'Startups', icon: <Building className="text-white" size={24} /> },
+    { number: '500+', label: 'Creators', icon: <Users className="text-white" size={24} /> },
+    { number: '100+', label: 'Colleges', icon: <Award className="text-white" size={24} /> },
+    { number: '20+', label: 'States', icon: <MapPin className="text-white" size={24} /> },
+    { number: '9', label: 'Sectors', icon: <Target className="text-white" size={24} /> },
   ];
 
   return (

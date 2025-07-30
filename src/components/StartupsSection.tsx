@@ -129,8 +129,12 @@ const StartupsSection = () => {
                 transition={{ duration: 0.6, delay: index * 0.1 }}
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-[#e86888] to-[#7d7eed] rounded-lg flex items-center justify-center">
-                    <Zap className="text-white" size={24} />
+                  <div className="w-12 h-12 bg-gradient-to-r from-[#e86888] to-[#7d7eed] rounded-full flex items-center justify-center overflow-hidden">
+                    <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">
+                        {startup.name.split(' ').map(word => word[0]).join('')}
+                      </span>
+                    </div>
                   </div>
                   {startup.special && (
                     <span className="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-sm font-medium">
@@ -143,17 +147,17 @@ const StartupsSection = () => {
                 <p className="text-white/70 mb-4">{startup.pitch}</p>
                 
                 <div className="flex flex-wrap gap-2 mb-4">
-                  <span className="bg-[#e86888]/20 text-[#e86888] px-3 py-1 rounded-full text-sm">
+                  <span className="bg-[#e86888]/20 text-white px-3 py-1 rounded-full text-sm">
                     {startup.sector}
                   </span>
                   {startup.badges.map((badge) => (
-                    <span key={badge} className="bg-[#7d7eed]/20 text-[#7d7eed] px-3 py-1 rounded-full text-sm">
+                    <span key={badge} className="bg-[#7d7eed]/20 text-white px-3 py-1 rounded-full text-sm">
                       {badge}
                     </span>
                   ))}
                 </div>
                 
-                <button className="w-full bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white py-2 rounded-lg font-medium opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-2">
+                <button className="w-full bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white py-3 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2 hover:scale-105 hover:shadow-lg hover:shadow-[#e86888]/25 active:scale-95 transform">
                   View Details <ExternalLink size={16} />
                 </button>
               </motion.div>

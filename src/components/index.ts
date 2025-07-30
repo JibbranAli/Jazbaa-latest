@@ -8,4 +8,5 @@ export { default as MentorsSection } from './MentorsSection';
 export { default as VisionSection } from './VisionSection';
 export { default as GallerySection } from './GallerySection';
 export { default as JoinSection } from './JoinSection';
-export { default as Footer } from './Footer'; 
+export { default as Footer } from './Footer';
+export { default as Logo } from './Logo'; 
