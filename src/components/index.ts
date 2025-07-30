@@ -1,0 +1,11 @@
+export { default as Navigation } from './Navigation';
+export { default as HeroSection } from './HeroSection';
+export { default as AboutSection } from './AboutSection';
+export { default as StartupsSection } from './StartupsSection';
+export { default as CreatorsSection } from './CreatorsSection';
+export { default as JourneySection } from './JourneySection';
+export { default as MentorsSection } from './MentorsSection';
+export { default as VisionSection } from './VisionSection';
+export { default as GallerySection } from './GallerySection';
+export { default as JoinSection } from './JoinSection';
+export { default as Footer } from './Footer'; 
