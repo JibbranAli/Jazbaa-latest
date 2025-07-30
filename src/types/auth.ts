@@ -9,6 +9,16 @@ export interface User {
   investorId?: string; // For investor users
 }
 
+export interface Comment {
+  id: string;
+  investorId: string;
+  investorName: string;
+  startupId: string;
+  comment: string;
+  timestamp: Date;
+  type: 'investment' | 'hiring' | 'general';
+}
+
 export interface Startup {
   id: string;
   name: string;

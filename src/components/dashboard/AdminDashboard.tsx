@@ -1,33 +1,74 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
-import { getAllStartups, dummyUsers } from '../../services/dummyData';
-import { Startup, User } from '../../types/auth';
-import { Zap, ExternalLink, Users, TrendingUp, Building, Plus, UserPlus, User as UserIcon } from 'lucide-react';
+import { collection, getDocs, doc, setDoc, addDoc, deleteDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { db, auth } from '../../config/firebase';
+import { Startup, User, Comment } from '../../types/auth';
+import { Zap, ExternalLink, Users, TrendingUp, Building, Plus, UserPlus, Trash2, Edit, Key, MessageCircle } from 'lucide-react';
 
 const AdminDashboard: React.FC = () => {
   const { currentUser } = useAuth();
   const [startups, setStartups] = useState<Startup[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('interests');
   const [showAddUser, setShowAddUser] = useState(false);
   const [newUser, setNewUser] = useState({
     email: '',
+    password: '',
     role: 'investor' as 'investor' | 'college' | 'admin',
     collegeId: '',
-    investorId: ''
+    investorId: '',
+    displayName: ''
   });
 
   useEffect(() => {
-    // Simulate loading
-    setTimeout(() => {
-      const startupsData = getAllStartups();
-      setStartups(startupsData);
-      setUsers(dummyUsers);
-      setLoading(false);
-    }, 1000);
+    fetchData();
   }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      console.log('Fetching admin data...');
+      
+      const [startupsSnapshot, usersSnapshot, commentsSnapshot] = await Promise.all([
+        getDocs(collection(db, 'startups')),
+        getDocs(collection(db, 'users')),
+        getDocs(collection(db, 'comments'))
+      ]);
+      
+      const startupsData = startupsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Startup[];
+      
+      const usersData = usersSnapshot.docs.map(doc => ({
+        uid: doc.id, // Fixed: use doc.id for uid
+        ...doc.data()
+      })) as User[];
+      
+      const commentsData = commentsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Comment[];
+      
+      console.log('Found startups:', startupsData.length);
+      console.log('Found users:', usersData.length);
+      console.log('Found comments:', commentsData.length);
+      console.log('Comments data:', commentsData);
+      
+      setStartups(startupsData);
+      setUsers(usersData);
+      setComments(commentsData);
+    } catch (error: any) {
+      console.error('Error fetching admin data:', error);
+      alert(`Error fetching data: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getInvestorName = (investorId: string) => {
     const investor = users.find(user => user.uid === investorId);
@@ -56,20 +97,70 @@ const AdminDashboard: React.FC = () => {
     }))
   ]);
 
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would add to Firebase
-    const newUserData: User = {
-      uid: `user-${Date.now()}`,
-      email: newUser.email,
-      role: newUser.role,
-      ...(newUser.collegeId && { collegeId: newUser.collegeId }),
-      ...(newUser.investorId && { investorId: newUser.investorId })
-    };
-    
-    setUsers([...users, newUserData]);
-    setNewUser({ email: '', role: 'investor', collegeId: '', investorId: '' });
-    setShowAddUser(false);
+    try {
+      console.log('Creating new user:', newUser.email);
+      
+      // Step 1: Create Firebase Auth user
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        newUser.email,
+        newUser.password
+      );
+      
+      console.log('Firebase Auth user created:', userCredential.user.uid);
+      
+      // Step 2: Add user data to Firestore
+      const userData = {
+        uid: userCredential.user.uid,
+        email: newUser.email,
+        role: newUser.role,
+        displayName: newUser.displayName,
+        ...(newUser.collegeId && { collegeId: newUser.collegeId }),
+        ...(newUser.investorId && { investorId: newUser.investorId }),
+        createdAt: new Date()
+      };
+      
+      await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+      
+      // Step 3: Update local state
+      setUsers([...users, userData]);
+      
+      // Step 4: Reset form
+      setNewUser({ 
+        email: '', 
+        password: '', 
+        role: 'investor', 
+        collegeId: '', 
+        investorId: '', 
+        displayName: '' 
+      });
+      setShowAddUser(false);
+      
+      console.log('User created successfully - they can now login!');
+      alert(`User created successfully!\nEmail: ${newUser.email}\nPassword: ${newUser.password}\n\nShare these credentials with the user.`);
+      
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      if (error.code === 'auth/email-already-in-use') {
+        alert('User with this email already exists!');
+      } else {
+        alert(`Error creating user: ${error.message}`);
+      }
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      try {
+        await deleteDoc(doc(db, 'users', userId));
+        setUsers(users.filter(user => user.uid !== userId));
+        console.log('User deleted successfully');
+      } catch (error) {
+        console.error('Error deleting user:', error);
+      }
+    }
   };
 
   if (loading) {
@@ -97,49 +188,59 @@ const AdminDashboard: React.FC = () => {
           </p>
         </motion.div>
 
-        {/* Tab Navigation */}
-        <div className="flex justify-center gap-4 mb-12">
-          <button
-            onClick={() => setActiveTab('interests')}
-            className={`px-6 py-3 rounded-full font-medium transition-all duration-300 ${
-              activeTab === 'interests'
-                ? 'bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white'
-                : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
-            }`}
-          >
-            Investment Interests
-          </button>
-          <button
-            onClick={() => setActiveTab('hiring')}
-            className={`px-6 py-3 rounded-full font-medium transition-all duration-300 ${
-              activeTab === 'hiring'
-                ? 'bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white'
-                : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
-            }`}
-          >
-            Hiring Requests
-          </button>
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`px-6 py-3 rounded-full font-medium transition-all duration-300 ${
-              activeTab === 'users'
-                ? 'bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white'
-                : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
-            }`}
-          >
-            Manage Users
-          </button>
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`px-6 py-3 rounded-full font-medium transition-all duration-300 ${
-              activeTab === 'overview'
-                ? 'bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white'
-                : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
-            }`}
-          >
-            Overview
-          </button>
-        </div>
+                {/* Tabs */}
+                <div className="flex flex-wrap justify-center gap-4 mb-12">
+                  <button
+                    onClick={() => setActiveTab('interests')}
+                    className={`px-6 py-3 rounded-full font-medium transition-all duration-300 ${
+                      activeTab === 'interests'
+                        ? 'bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white'
+                        : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                    }`}
+                  >
+                    Investment Interests
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('hiring')}
+                    className={`px-6 py-3 rounded-full font-medium transition-all duration-300 ${
+                      activeTab === 'hiring'
+                        ? 'bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white'
+                        : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                    }`}
+                  >
+                    Hiring Requests
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('comments')}
+                    className={`px-6 py-3 rounded-full font-medium transition-all duration-300 ${
+                      activeTab === 'comments'
+                        ? 'bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white'
+                        : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                    }`}
+                  >
+                    Investor Comments
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('users')}
+                    className={`px-6 py-3 rounded-full font-medium transition-all duration-300 ${
+                      activeTab === 'users'
+                        ? 'bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white'
+                        : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                    }`}
+                  >
+                    Manage Users
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('overview')}
+                    className={`px-6 py-3 rounded-full font-medium transition-all duration-300 ${
+                      activeTab === 'overview'
+                        ? 'bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white'
+                        : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                    }`}
+                  >
+                    Overview
+                  </button>
+                </div>
 
         {/* Content based on active tab */}
         {activeTab === 'interests' && (
@@ -234,6 +335,65 @@ const AdminDashboard: React.FC = () => {
           </motion.div>
         )}
 
+        {activeTab === 'comments' && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="text-2xl font-bold text-white mb-8 text-center">
+              Investor Comments
+            </h2>
+            {comments.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {comments.map((comment, index) => (
+                  <motion.div
+                    key={comment.id}
+                    className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10"
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: index * 0.1 }}
+                  >
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 bg-gradient-to-r from-[#e86888] to-[#7d7eed] rounded-full flex items-center justify-center">
+                        <MessageCircle className="text-white" size={20} />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-white font-semibold">{comment.investorName}</h3>
+                        <p className="text-white/60 text-sm">{getStartupName(comment.startupId)}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <span className="text-white/60 text-sm">Comment:</span>
+                        <p className="text-white/90 text-sm mt-1">{comment.comment}</p>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                          comment.type === 'investment' ? 'bg-green-500/20 text-green-400' :
+                          comment.type === 'hiring' ? 'bg-blue-500/20 text-blue-400' :
+                          'bg-gray-500/20 text-gray-400'
+                        }`}>
+                          {comment.type}
+                        </span>
+                        <span className="text-white/60 text-xs">
+                          {new Date(comment.timestamp).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-white/60 text-xl">
+                No comments from investors yet.
+              </div>
+            )}
+          </motion.div>
+        )}
+
         {activeTab === 'users' && (
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -261,16 +421,29 @@ const AdminDashboard: React.FC = () => {
                   transition={{ duration: 0.6, delay: index * 0.1 }}
                 >
                   <div className="flex items-center gap-3 mb-4">
-                                         <div className="w-10 h-10 bg-gradient-to-r from-[#e86888] to-[#7d7eed] rounded-full flex items-center justify-center">
-                       <UserIcon className="text-white" size={20} />
-                     </div>
-                    <div>
+                    <div className="w-10 h-10 bg-gradient-to-r from-[#e86888] to-[#7d7eed] rounded-full flex items-center justify-center">
+                      <Users className="text-white" size={20} />
+                    </div>
+                    <div className="flex-1">
                       <h3 className="text-white font-semibold capitalize">{user.role}</h3>
                       <p className="text-white/60 text-sm">{user.email}</p>
                     </div>
+                    <button
+                      onClick={() => handleDeleteUser(user.uid)}
+                      className="text-red-400 hover:text-red-300 transition-colors"
+                      title="Delete user"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                   
                   <div className="space-y-2">
+                    {user.displayName && (
+                      <div>
+                        <span className="text-white/60 text-sm">Name:</span>
+                        <p className="text-white font-medium">{user.displayName}</p>
+                      </div>
+                    )}
                     {user.collegeId && (
                       <div>
                         <span className="text-white/60 text-sm">College ID:</span>
@@ -316,6 +489,29 @@ const AdminDashboard: React.FC = () => {
                       />
                     </div>
                     <div>
+                      <label className="block text-white text-sm font-medium mb-2">Password</label>
+                      <input
+                        type="password"
+                        value={newUser.password}
+                        onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-[#e86888] transition-colors"
+                        placeholder="Enter password (min 6 characters)"
+                        minLength={6}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-white text-sm font-medium mb-2">Display Name</label>
+                      <input
+                        type="text"
+                        value={newUser.displayName}
+                        onChange={(e) => setNewUser({...newUser, displayName: e.target.value})}
+                        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-[#e86888] transition-colors"
+                        placeholder="Enter display name"
+                        required
+                      />
+                    </div>
+                    <div>
                       <label className="block text-white text-sm font-medium mb-2">Role</label>
                       <select
                         value={newUser.role}
@@ -353,12 +549,21 @@ const AdminDashboard: React.FC = () => {
                         />
                       </div>
                     )}
+                    <div className="bg-blue-500/20 border border-blue-500/50 rounded-lg p-4 mt-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Key className="text-blue-400" size={16} />
+                        <span className="text-blue-400 font-medium">Login Credentials</span>
+                      </div>
+                      <p className="text-blue-200 text-sm">
+                        The user will be able to login immediately with the email and password you provide.
+                      </p>
+                    </div>
                     <div className="flex gap-4 mt-6">
                       <button
                         type="submit"
                         className="flex-1 bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white py-3 rounded-lg font-semibold transition-all duration-300 hover:scale-105"
                       >
-                        Add User
+                        Create User
                       </button>
                       <button
                         type="button"

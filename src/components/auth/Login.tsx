@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion } from 'framer-motion';
-import { dummyCredentials, getUserByEmail } from '../../services/dummyData';
 import { useNavigate } from 'react-router-dom';
 
 const Login: React.FC = () => {
@@ -40,32 +39,13 @@ const Login: React.FC = () => {
     try {
       setError('');
       setLoading(true);
-      
-      // Check if credentials match dummy data
-      const user = getUserByEmail(email);
-      if (!user) {
-        setError('User not found');
-        setLoading(false);
-        return;
-      }
-
-      // For demo purposes, accept any password for dummy users
       await login(email, password);
-      
-      // Redirect based on role
-      redirectBasedOnRole(user.role);
-    } catch (error) {
-      setError('Failed to log in');
+    } catch (error: any) {
+      setError(error.message || 'Failed to log in');
       console.error(error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickLogin = (role: 'investor' | 'college' | 'admin') => {
-    const credentials = dummyCredentials[role];
-    setEmail(credentials.email);
-    setPassword(credentials.password);
   };
 
   return (
@@ -77,31 +57,6 @@ const Login: React.FC = () => {
         transition={{ duration: 0.5 }}
       >
         <h2 className="text-3xl font-bold text-white text-center mb-8">Login</h2>
-        
-        {/* Quick Login Buttons */}
-        <div className="mb-6 space-y-3">
-          <p className="text-white/70 text-sm text-center">Quick Login (Demo):</p>
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              onClick={() => handleQuickLogin('investor')}
-              className="bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white py-2 px-3 rounded-lg text-sm font-medium transition-all duration-300 hover:scale-105"
-            >
-              Investor
-            </button>
-            <button
-              onClick={() => handleQuickLogin('college')}
-              className="bg-gradient-to-r from-[#7d7eed] to-[#e86888] text-white py-2 px-3 rounded-lg text-sm font-medium transition-all duration-300 hover:scale-105"
-            >
-              College
-            </button>
-            <button
-              onClick={() => handleQuickLogin('admin')}
-              className="bg-gradient-to-r from-[#543ef7] to-[#9cecd5] text-white py-2 px-3 rounded-lg text-sm font-medium transition-all duration-300 hover:scale-105"
-            >
-              Admin
-            </button>
-          </div>
-        </div>
         
         {error && (
           <div className="bg-red-500/20 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg mb-6">
@@ -149,14 +104,10 @@ const Login: React.FC = () => {
           </button>
         </form>
 
-        {/* Demo Credentials */}
-        <div className="mt-6 p-4 bg-white/5 rounded-lg">
-          <p className="text-white/70 text-sm mb-2">Demo Credentials:</p>
-          <div className="space-y-1 text-xs text-white/60">
-            <div><strong>Investor:</strong> investor@test.com / password123</div>
-            <div><strong>College:</strong> college@test.com / password123</div>
-            <div><strong>Admin:</strong> admin@test.com / password123</div>
-          </div>
+        <div className="mt-6 text-center">
+          <p className="text-white/70 text-sm">
+            Don't have an account? Contact admin to get registered.
+          </p>
         </div>
       </motion.div>
     </div>

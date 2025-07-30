@@ -1,15 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
-  User as FirebaseUser,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged
+  User as FirebaseUser, 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut 
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { User, UserRole } from '../types/auth';
-import { getUserByEmail, dummyUsers } from '../services/dummyData';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -36,24 +35,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        // For demo purposes, use dummy data
-        const dummyUser = getUserByEmail(firebaseUser.email!);
-        if (dummyUser) {
-          setCurrentUser(dummyUser);
-        } else {
-          // Try to get user data from Firestore
-          try {
-            const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-            if (userDoc.exists()) {
-              setCurrentUser({
-                uid: firebaseUser.uid,
-                email: firebaseUser.email!,
-                ...userDoc.data()
-              } as User);
-            }
-          } catch (error) {
-            console.error('Error fetching user data:', error);
+        try {
+          // Get user data from Firestore
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            setCurrentUser({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email!,
+              ...userDoc.data()
+            } as User);
+          } else {
+            // User exists in Auth but not in Firestore
+            console.error('User data not found in Firestore');
+            setCurrentUser(null);
           }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          setCurrentUser(null);
         }
       } else {
         setCurrentUser(null);
@@ -65,22 +63,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
-    // For demo purposes, check dummy data first
-    const dummyUser = getUserByEmail(email);
-    if (dummyUser) {
-      // Simulate Firebase auth for dummy users
-      setCurrentUser(dummyUser);
-      return;
-    }
-
-    // Fallback to Firebase auth
     await signInWithEmailAndPassword(auth, email, password);
   };
 
   const register = async (email: string, password: string, role: UserRole, collegeId?: string, investorId?: string) => {
     const { user } = await createUserWithEmailAndPassword(auth, email, password);
     
-    // Create user document in Firestore
     const userData: Partial<User> = {
       uid: user.uid,
       email: user.email!,
@@ -88,12 +76,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...(collegeId && { collegeId }),
       ...(investorId && { investorId })
     };
-
+    
     await setDoc(doc(db, 'users', user.uid), userData);
   };
 
   const logout = async () => {
-    setCurrentUser(null);
     await signOut(auth);
   };
 
@@ -107,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }; 

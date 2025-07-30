@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
+import SetupFirebase from './components/SetupFirebase';
 import InvestorDashboard from './components/dashboard/InvestorDashboard';
 import CollegeDashboard from './components/dashboard/CollegeDashboard';
 import AdminDashboard from './components/dashboard/AdminDashboard';
@@ -96,6 +97,9 @@ const AppContent: React.FC = () => {
         <Navigation />
         
         <Routes>
+          {/* Setup Route */}
+          <Route path="/setup" element={<SetupFirebase />} />
+          
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
