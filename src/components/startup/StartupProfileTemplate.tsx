@@ -403,8 +403,16 @@ const StartupProfileTemplate: React.FC = () => {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {startup.team.map((member, index) => (
               <div key={index} className="bg-white rounded-2xl p-8 text-center shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
-                <div className="w-32 h-32 bg-gradient-to-br from-purple-500 to-teal-400 rounded-full mx-auto mb-6 flex items-center justify-center text-white text-2xl font-bold">
-                  {member.name.split(' ').map((word: string) => word[0]).join('')}
+                <div className="w-32 h-32 bg-gradient-to-br from-purple-500 to-teal-400 rounded-full mx-auto mb-6 flex items-center justify-center text-white text-2xl font-bold overflow-hidden">
+                  {member.headshot ? (
+                    <img
+                      src={member.headshot}
+                      alt={`${member.name} headshot`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    member.name.split(' ').map((word: string) => word[0]).join('')
+                  )}
                 </div>
                 <h3 className="text-xl font-semibold mb-2">{member.name}</h3>
                 <p className="text-gray-600 mb-4">{member.role}</p>
@@ -451,7 +459,7 @@ const StartupProfileTemplate: React.FC = () => {
         </div>
       </section>
 
-      {/* Individual Pitch Videos */}
+      {/* Team Pitch Video */}
       {startup.team.some(member => member.pitchVideo) && (
         <section className="py-20 px-4">
           <div className="max-w-6xl mx-auto">
@@ -463,20 +471,39 @@ const StartupProfileTemplate: React.FC = () => {
                 Beyond Founders — Talented Developers Open to Opportunities
               </p>
             </div>
-            <div className="grid md:grid-cols-2 gap-8">
-              {startup.team.filter(member => member.pitchVideo).map((member, index) => (
-                <div key={index} className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300">
-                  <div className="bg-gradient-to-br from-pink-400 to-purple-500 rounded-xl h-64 flex items-center justify-center text-white mb-6">
-                    <div className="text-center">
-                      <Video className="w-16 h-16 mx-auto mb-4" />
-                      <div className="text-xl font-semibold">{member.name}'s Pitch</div>
-                      <div className="text-sm opacity-80 mt-2">2-minute video</div>
+            <div className="flex justify-center">
+              <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 max-w-4xl w-full">
+                {/* Video Player */}
+                <div className="mb-8">
+                  {startup.team.find(member => member.pitchVideo)?.pitchVideo && (
+                    <div className="relative w-full h-96 rounded-xl overflow-hidden">
+                      <iframe
+                        src={convertToEmbedUrl(startup.team.find(member => member.pitchVideo)!.pitchVideo!)}
+                        title="Team Pitch Video"
+                        className="w-full h-full"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
                     </div>
-                  </div>
-                  <h3 className="text-2xl font-semibold mb-3">{member.role}</h3>
-                  <p className="text-gray-600">Passionate about creating innovative solutions and leading development teams.</p>
+                  )}
                 </div>
-              ))}
+                
+                {/* Team Information */}
+                <div className="text-center">
+                  <h3 className="text-2xl font-semibold mb-3">Meet Our Team</h3>
+                  <p className="text-gray-600 mb-6">
+                    Our talented developers are passionate about creating innovative solutions and leading development teams.
+                  </p>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {startup.team.map((member, index) => (
+                      <span key={index} className="inline-block bg-gradient-to-r from-purple-500 to-teal-400 text-white px-3 py-1 rounded-full text-sm font-medium">
+                        {member.name} - {member.role}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>

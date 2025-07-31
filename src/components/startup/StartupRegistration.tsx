@@ -5,6 +5,8 @@ import { db } from '../../config/firebase';
 import { motion } from 'framer-motion';
 import { Upload, X, Image as ImageIcon, CheckCircle, AlertCircle } from 'lucide-react';
 import { uploadStartupLogo, uploadTeamPhoto } from '../../utils/imageUpload';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../../config/firebase';
 
 interface StartupData {
   name: string;
@@ -86,6 +88,9 @@ const StartupRegistration: React.FC = () => {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
+  
+  // Team member image upload states
+  const [teamMemberImages, setTeamMemberImages] = useState<{ [key: number]: { file: File | null, preview: string | null, uploading: boolean, error: string | null } }>({});
 
   const sectors = [
     'Technology', 'Healthcare', 'Education', 'Finance', 'E-commerce', 
@@ -161,7 +166,7 @@ const StartupRegistration: React.FC = () => {
   const addTeamMember = () => {
     setFormData(prev => ({
       ...prev,
-      team: [...prev.team, { name: '', role: '', linkedin: '', github: '', portfolio: '', pitchVideo: '', hiring: false }]
+      team: [...prev.team, { name: '', role: '', linkedin: '', github: '', portfolio: '', pitchVideo: '', hiring: false, headshot: '' }]
     }));
   };
 
@@ -170,6 +175,23 @@ const StartupRegistration: React.FC = () => {
       ...prev,
       team: prev.team.filter((_, i) => i !== index)
     }));
+    
+    // Clean up team member image state
+    setTeamMemberImages(prev => {
+      const newState = { ...prev };
+      delete newState[index];
+      // Shift down all indices after the removed one
+      const shiftedState: typeof prev = {};
+      Object.keys(newState).forEach(key => {
+        const keyNum = parseInt(key);
+        if (keyNum > index) {
+          shiftedState[keyNum - 1] = newState[keyNum];
+        } else {
+          shiftedState[keyNum] = newState[keyNum];
+        }
+      });
+      return shiftedState;
+    });
   };
 
   const handleBadgeToggle = (badge: string) => {
@@ -268,12 +290,106 @@ const StartupRegistration: React.FC = () => {
   const convertFileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => {
-        resolve(reader.result as string);
-      };
+      reader.onload = () => resolve(reader.result as string);
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+  };
+
+  // Team member image upload handlers
+  const handleTeamMemberImageChange = (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setTeamMemberImages(prev => ({
+          ...prev,
+          [index]: { ...prev[index], error: 'Please select an image file' }
+        }));
+        return;
+      }
+
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        setTeamMemberImages(prev => ({
+          ...prev,
+          [index]: { ...prev[index], error: 'Image size should be less than 5MB' }
+        }));
+        return;
+      }
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setTeamMemberImages(prev => ({
+          ...prev,
+          [index]: {
+            file,
+            preview: e.target?.result as string,
+            uploading: false,
+            error: null
+          }
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeTeamMemberImage = (index: number) => {
+    setTeamMemberImages(prev => ({
+      ...prev,
+      [index]: { file: null, preview: null, uploading: false, error: null }
+    }));
+  };
+
+  const uploadTeamMemberImage = async (index: number): Promise<string | null> => {
+    const imageData = teamMemberImages[index];
+    if (!imageData?.file) return null;
+
+    try {
+      setTeamMemberImages(prev => ({
+        ...prev,
+        [index]: { ...prev[index], uploading: true, error: null }
+      }));
+
+      // Try Firebase Storage first
+      try {
+        const fileName = `team-headshots/${formData.name}_${index}_${Date.now()}_${Math.random().toString(36).substring(2)}.jpg`;
+        const storageRef = ref(storage, fileName);
+        await uploadBytes(storageRef, imageData.file);
+        const downloadURL = await getDownloadURL(storageRef);
+        
+        setTeamMemberImages(prev => ({
+          ...prev,
+          [index]: { ...prev[index], uploading: false }
+        }));
+        
+        return downloadURL;
+      } catch (storageError) {
+        console.log('Firebase Storage failed, using base64 fallback:', storageError);
+        
+        // Fallback to base64
+        const base64Data = await convertFileToBase64(imageData.file);
+        
+        setTeamMemberImages(prev => ({
+          ...prev,
+          [index]: { ...prev[index], uploading: false }
+        }));
+        
+        return base64Data;
+      }
+    } catch (error) {
+      console.error('Error uploading team member image:', error);
+      setTeamMemberImages(prev => ({
+        ...prev,
+        [index]: { 
+          ...prev[index], 
+          uploading: false, 
+          error: 'Failed to upload image' 
+        }
+      }));
+      return null;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -311,16 +427,41 @@ const StartupRegistration: React.FC = () => {
         console.log('✅ Logo uploaded successfully:', logoUrl);
       }
       
+      // Upload team member images if selected
+      console.log('📤 Uploading team member images...');
+      const updatedTeam = await Promise.all(
+        formData.team.map(async (member, index) => {
+          const imageData = teamMemberImages[index];
+          if (imageData?.file) {
+            console.log(`📤 Uploading image for team member ${index}: ${member.name}`);
+            const headshotUrl = await uploadTeamMemberImage(index);
+            if (headshotUrl) {
+              console.log(`✅ Team member image uploaded successfully: ${headshotUrl}`);
+              return { ...member, headshot: headshotUrl };
+            } else {
+              console.warn(`⚠️ Team member image upload failed for ${member.name}`);
+              return member;
+            }
+          }
+          return member;
+        })
+      );
+      console.log('✅ All team member images processed');
+      
       // Prepare complete startup data with all profile fields for PERMANENT storage
       const startupData = {
-        ...formData, slug, createdAt: new Date(), status: 'active', createdBy: invite.email,
+        ...formData, 
+        slug, 
+        createdAt: new Date(), 
+        status: 'active', 
+        createdBy: invite.email,
+        team: updatedTeam, // Use updated team with headshot URLs
         // Template-compatible fields
         name: formData.name,
         tagline: formData.tagline,
         story: formData.story,
         sector: formData.sector,
         badges: formData.badges,
-        team: formData.team,
         website: formData.website,
         appStore: formData.appStore,
         playStore: formData.playStore,
@@ -504,19 +645,23 @@ const StartupRegistration: React.FC = () => {
                   value={formData.sector}
                   onChange={(e) => handleInputChange('sector', e.target.value)}
                   className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-[#e86888]"
+                  style={{
+                    color: 'white',
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                  }}
                   required
                 >
-                  <option value="">Select sector</option>
-                  <option value="HealthTech">HealthTech</option>
-                  <option value="EdTech">EdTech</option>
-                  <option value="FinTech">FinTech</option>
-                  <option value="E-commerce">E-commerce</option>
-                  <option value="AI/ML">AI/ML</option>
-                  <option value="IoT">IoT</option>
-                  <option value="Sustainability">Sustainability</option>
-                  <option value="Entertainment">Entertainment</option>
-                  <option value="Social Impact">Social Impact</option>
-                  <option value="Other">Other</option>
+                  <option value="" style={{ backgroundColor: '#1f2937', color: 'white' }}>Select sector</option>
+                  <option value="HealthTech" style={{ backgroundColor: '#1f2937', color: 'white' }}>HealthTech</option>
+                  <option value="EdTech" style={{ backgroundColor: '#1f2937', color: 'white' }}>EdTech</option>
+                  <option value="FinTech" style={{ backgroundColor: '#1f2937', color: 'white' }}>FinTech</option>
+                  <option value="E-commerce" style={{ backgroundColor: '#1f2937', color: 'white' }}>E-commerce</option>
+                  <option value="AI/ML" style={{ backgroundColor: '#1f2937', color: 'white' }}>AI/ML</option>
+                  <option value="IoT" style={{ backgroundColor: '#1f2937', color: 'white' }}>IoT</option>
+                  <option value="Sustainability" style={{ backgroundColor: '#1f2937', color: 'white' }}>Sustainability</option>
+                  <option value="Entertainment" style={{ backgroundColor: '#1f2937', color: 'white' }}>Entertainment</option>
+                  <option value="Social Impact" style={{ backgroundColor: '#1f2937', color: 'white' }}>Social Impact</option>
+                  <option value="Other" style={{ backgroundColor: '#1f2937', color: 'white' }}>Other</option>
                 </select>
               </div>
               <div>
@@ -670,7 +815,7 @@ const StartupRegistration: React.FC = () => {
                   placeholder="https://yourstartup.com"
                 />
               </div>
-              <div>
+              {/* <div>
                 <label className="block text-white/80 mb-2">Demo URL</label>
                 <input
                   type="url"
@@ -709,7 +854,7 @@ const StartupRegistration: React.FC = () => {
                   className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-[#e86888]"
                   placeholder="QR code image URL"
                 />
-              </div>
+              </div> */}
               <div>
                 <label className="block text-white/80 mb-2">Contact Phone</label>
                 <input
@@ -762,6 +907,62 @@ const StartupRegistration: React.FC = () => {
                         required
                       />
                     </div>
+                    
+                    {/* Team Member Headshot Upload */}
+                    <div className="md:col-span-2">
+                      <label className="block text-white/80 mb-2">Headshot Photo</label>
+                      <div className="space-y-3">
+                        {/* Image Preview */}
+                        {teamMemberImages[index]?.preview && (
+                          <div className="relative inline-block">
+                            <img
+                              src={teamMemberImages[index].preview}
+                              alt={`${member.name} headshot`}
+                              className="w-24 h-24 object-cover rounded-lg border border-white/20"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeTeamMemberImage(index)}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        )}
+                        
+                        {/* Upload Progress */}
+                        {teamMemberImages[index]?.uploading && (
+                          <div className="text-blue-400 text-sm">Uploading image...</div>
+                        )}
+                        
+                        {/* Error Message */}
+                        {teamMemberImages[index]?.error && (
+                          <div className="text-red-400 text-sm">{teamMemberImages[index].error}</div>
+                        )}
+                        
+                        {/* Upload Button */}
+                        {!teamMemberImages[index]?.preview && (
+                          <div className="border-2 border-dashed border-white/20 rounded-lg p-4 text-center hover:border-white/40 transition-colors">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleTeamMemberImageChange(index, e)}
+                              className="hidden"
+                              id={`team-member-image-${index}`}
+                            />
+                            <label
+                              htmlFor={`team-member-image-${index}`}
+                              className="cursor-pointer text-white/80 hover:text-white"
+                            >
+                              <div className="text-2xl mb-2">📷</div>
+                              <div className="text-sm">Click to upload headshot</div>
+                              <div className="text-xs text-white/60 mt-1">JPG, PNG (max 5MB)</div>
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
                     <div>
                       <label className="block text-white/80 mb-2">LinkedIn URL</label>
                       <input

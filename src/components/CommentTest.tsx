@@ -59,10 +59,14 @@ const CommentTest: React.FC = () => {
                 value={type}
                 onChange={(e) => setType(e.target.value as any)}
                 className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-[#e86888]"
+                style={{
+                  color: 'white',
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                }}
               >
-                <option value="general">General Comment</option>
-                <option value="investment">Investment Related</option>
-                <option value="hiring">Hiring Related</option>
+                <option value="general" style={{ backgroundColor: '#1f2937', color: 'white' }}>General Comment</option>
+                <option value="investment" style={{ backgroundColor: '#1f2937', color: 'white' }}>Investment Related</option>
+                <option value="hiring" style={{ backgroundColor: '#1f2937', color: 'white' }}>Hiring Related</option>
               </select>
             </div>
             

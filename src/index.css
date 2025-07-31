@@ -3,3 +3,24 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom styles for dropdown options */
+select option {
+  background-color: #1f2937 !important;
+  color: white !important;
+  padding: 8px 12px;
+}
+
+select option:hover {
+  background-color: #374151 !important;
+}
+
+/* Ensure dropdown options are visible in dark themes */
+select {
+  color: white;
+}
+
+select:focus {
+  outline: none;
+  border-color: #e86888;
+}

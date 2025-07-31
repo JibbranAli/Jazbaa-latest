@@ -82,10 +82,14 @@ const Register: React.FC = () => {
               value={role}
               onChange={(e) => setRole(e.target.value as UserRole)}
               className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-[#e86888] transition-colors"
+              style={{
+                color: 'white',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)'
+              }}
             >
-              <option value="investor">Investor</option>
-              <option value="college">College</option>
-              <option value="admin">Admin</option>
+              <option value="investor" style={{ backgroundColor: '#1f2937', color: 'white' }}>Investor</option>
+              <option value="college" style={{ backgroundColor: '#1f2937', color: 'white' }}>College</option>
+              <option value="admin" style={{ backgroundColor: '#1f2937', color: 'white' }}>Admin</option>
             </select>
           </div>
 
