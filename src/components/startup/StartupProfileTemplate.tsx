@@ -180,29 +180,24 @@ const StartupProfileTemplate: React.FC = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Banner */}
-      <section className="relative bg-gradient-to-br from-pink-400 via-purple-400 to-indigo-500 text-white py-24 px-4 overflow-hidden">
-        <div className="absolute inset-0 bg-black bg-opacity-10"></div>
-        <div className="relative z-10 max-w-6xl mx-auto text-center">
-          <div className="w-20 h-20 bg-white rounded-2xl mx-auto mb-8 flex items-center justify-center shadow-2xl">
-            {startup.logo ? (
-              <img
-                src={startup.logo}
-                alt={`${startup.name} logo`}
-                className="w-12 h-12 object-contain"
-              />
-            ) : (
-              <Rocket className="w-10 h-10 text-indigo-600" />
-            )}
-          </div>
-          <h1 className="text-5xl md:text-6xl font-black mb-4 leading-tight">
-            {startup.name}
+      <section className="relative bg-black py-20 px-6 lg:px-16 overflow-hidden">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 items-center gap-12">
+        
+        {/* Left Content Card */}
+        <div className="bg-gradient-to-b from-neutral-900 to-black rounded-3xl shadow-2xl p-10 relative z-20">
+          <h1 className="text-5xl md:text-6xl font-extrabold mb-6 leading-tight">
+            <span className="bg-gradient-to-r from-pink-400 via-purple-500 to-blue-500 bg-clip-text text-transparent">
+              {startup.name}
+            </span>
           </h1>
-          <p className="text-xl md:text-2xl font-medium mb-12 opacity-90">
+
+          <p className="text-xl md:text-2xl font-medium mb-10 text-gray-200">
             {startup.tagline}
           </p>
-          <div className="flex flex-col md:flex-row gap-4 justify-center items-center">
+
+          <div className="flex flex-col sm:flex-row gap-4">
             {startup.productVideo && (
-              <button className="flex items-center gap-3 px-8 py-4 bg-white bg-opacity-20 backdrop-blur-md border border-white border-opacity-30 rounded-xl text-white font-semibold hover:bg-opacity-30 transition-all duration-300 hover:-translate-y-1">
+              <button className="px-6 py-3 rounded-lg font-semibold flex items-center gap-2 text-white bg-gradient-to-r from-pink-400 to-purple-500 hover:scale-105 transform transition-all duration-300">
                 <PlayCircle className="w-5 h-5" />
                 Watch Product Video
               </button>
@@ -212,20 +207,35 @@ const StartupProfileTemplate: React.FC = () => {
                 href={startup.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 px-8 py-4 bg-white bg-opacity-20 backdrop-blur-md border border-white border-opacity-30 rounded-xl text-white font-semibold hover:bg-opacity-30 transition-all duration-300 hover:-translate-y-1"
+                className="px-6 py-3 rounded-lg font-semibold flex items-center gap-2 text-white bg-white/10 border border-white/20 hover:bg-white/20 hover:scale-105 transform transition-all duration-300"
               >
                 <ExternalLink className="w-5 h-5" />
-                Explore Website
+                Explore Website / App
               </a>
             )}
-            <button className="flex items-center gap-3 px-8 py-4 bg-white bg-opacity-20 backdrop-blur-md border border-white border-opacity-30 rounded-xl text-white font-semibold hover:bg-opacity-30 transition-all duration-300 hover:-translate-y-1">
+            <button className="px-6 py-3 rounded-lg font-semibold flex items-center gap-2 text-white bg-white/10 border border-white/20 hover:bg-white/20 hover:scale-105 transform transition-all duration-300">
               <Users className="w-5 h-5" />
               Meet the Team
             </button>
           </div>
         </div>
-      </section>
 
+        {/* Right Logo */}
+        <div className="flex justify-center md:justify-end relative">
+          <div className="bg-white rounded-full shadow-2xl w-72 h-72 flex items-center justify-center absolute md:right-[-50px] z-10">
+            {startup.logo ? (
+              <img
+                src={startup.logo}
+                alt={`${startup.name} logo`}
+                className="w-44 h-44 object-contain"
+              />
+            ) : (
+              <div className="text-gray-500">No Logo</div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
       {/* Product Introduction */}
       <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto">
