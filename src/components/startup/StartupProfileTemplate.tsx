@@ -21,7 +21,9 @@ import {
   Github,
   Briefcase,
   Video,
-  Code
+  Code,
+  Eye,
+  AlertCircle
 } from 'lucide-react';
 
 interface StartupData {
@@ -367,23 +369,82 @@ const StartupProfileTemplate: React.FC = () => {
             <p className="text-xl text-gray-600 mb-12 max-w-3xl mx-auto">
               View our Investor Pitch Deck to know our mission, model, and market.
             </p>
-            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl mx-auto">
-              <div className="bg-gradient-to-br from-purple-500 to-teal-400 rounded-xl h-96 flex items-center justify-center text-white">
-                <div className="text-center">
-                  <Presentation className="w-20 h-20 mx-auto mb-4" />
-                  <div className="text-2xl font-semibold">Investor Pitch Deck</div>
-                  <div className="text-sm opacity-80 mt-2 mb-6">Google Slides Embedded</div>
-                  <a
-                    href={startup.pitchDeck}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-6 py-3 bg-white bg-opacity-20 backdrop-blur-md rounded-lg font-semibold hover:bg-opacity-30 transition-all mx-auto"
-                  >
-                    <Download className="w-5 h-5" />
-                    Download PDF
-                  </a>
-                </div>
+            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-5xl mx-auto">
+              <div className="mb-6">
+                <h3 className="text-2xl font-semibold text-gray-800 mb-2">Investor Pitch Deck</h3>
+                <p className="text-gray-600">
+                  {startup.pitchDeck.includes('.pdf') ? 'PDF Document' : 'PowerPoint Presentation'}
+                </p>
               </div>
+              
+              {/* Embedded Viewer */}
+              <div className="bg-gray-100 rounded-xl overflow-hidden shadow-lg">
+                <div className="bg-gray-200 px-4 py-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Presentation className="w-5 h-5 text-gray-600" />
+                    <span className="text-sm font-medium text-gray-700">
+                      {startup.pitchDeck.includes('.pdf') ? 'PDF Viewer' : 'PowerPoint Viewer'}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <a
+                      href={startup.pitchDeck}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+                    >
+                      <Eye className="w-3 h-3" />
+                      Open
+                    </a>
+                    <a
+                      href={startup.pitchDeck}
+                      download
+                      className="flex items-center gap-1 px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 transition-colors"
+                    >
+                      <Download className="w-3 h-3" />
+                      Download
+                    </a>
+                  </div>
+                </div>
+                
+                {/* PDF Viewer */}
+                {startup.pitchDeck.includes('.pdf') && (
+                  <div className="h-96 w-full">
+                    <iframe
+                      src={`${startup.pitchDeck}#toolbar=1&navpanes=1&scrollbar=1`}
+                      className="w-full h-full border-0"
+                      title="Pitch Deck PDF Viewer"
+                      allowFullScreen
+                    />
+                  </div>
+                )}
+                
+                {/* PowerPoint Viewer (using Google Docs Viewer) */}
+                {!startup.pitchDeck.includes('.pdf') && (startup.pitchDeck.includes('.ppt') || startup.pitchDeck.includes('.pptx')) && (
+                  <div className="h-96 w-full">
+                    <iframe
+                      src={`https://docs.google.com/viewer?url=${encodeURIComponent(startup.pitchDeck)}&embedded=true`}
+                      className="w-full h-full border-0"
+                      title="Pitch Deck PowerPoint Viewer"
+                      allowFullScreen
+                    />
+                  </div>
+                )}
+                
+                {/* Fallback for unsupported formats */}
+                {!startup.pitchDeck.includes('.pdf') && !startup.pitchDeck.includes('.ppt') && !startup.pitchDeck.includes('.pptx') && (
+                  <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-yellow-800">
+                      <AlertCircle className="w-5 h-5" />
+                      <span className="text-sm">
+                        Preview not available for this file type. Please use the download button to view the document.
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              
             </div>
           </div>
         </section>
@@ -510,7 +571,7 @@ const StartupProfileTemplate: React.FC = () => {
       )}
 
       {/* Live Demo */}
-      <section className="py-20 px-4 bg-gray-50">
+      {/* <section className="py-20 px-4 bg-gray-50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent mb-4">
@@ -579,7 +640,7 @@ const StartupProfileTemplate: React.FC = () => {
             )}
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Call for Collaboration */}
       <section className="py-20 px-4">

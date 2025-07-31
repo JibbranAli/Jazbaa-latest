@@ -89,6 +89,12 @@ const StartupRegistration: React.FC = () => {
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
   
+  // Pitch Deck upload state
+  const [pitchDeckFile, setPitchDeckFile] = useState<File | null>(null);
+  const [pitchDeckPreview, setPitchDeckPreview] = useState<string | null>(null);
+  const [pitchDeckUploading, setPitchDeckUploading] = useState(false);
+  const [pitchDeckUploadError, setPitchDeckUploadError] = useState<string | null>(null);
+  
   // Team member image upload states
   const [teamMemberImages, setTeamMemberImages] = useState<{ [key: number]: { file: File | null, preview: string | null, uploading: boolean, error: string | null } }>({});
 
@@ -296,6 +302,74 @@ const StartupRegistration: React.FC = () => {
     });
   };
 
+  // Pitch Deck upload handlers
+  const handlePitchDeckChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type (only .ppt, .pptx, .pdf)
+    const allowedTypes = ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      setPitchDeckUploadError('Please select a PowerPoint (.ppt, .pptx) or PDF file');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setPitchDeckUploadError('File size must be less than 10MB');
+      return;
+    }
+
+    setPitchDeckFile(file);
+    setPitchDeckUploadError(null);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setPitchDeckPreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removePitchDeck = () => {
+    setPitchDeckFile(null);
+    setPitchDeckPreview(null);
+    setPitchDeckUploadError(null);
+    setFormData(prev => ({ ...prev, pitchDeck: '' }));
+  };
+
+  const uploadPitchDeck = async (): Promise<string | null> => {
+    if (!pitchDeckFile || !formData.name) {
+      return null;
+    }
+
+    setPitchDeckUploading(true);
+    setPitchDeckUploadError(null);
+
+    try {
+      console.log('📤 Starting pitch deck upload...');
+      
+      // Generate a unique filename
+      let fileName = `pitch_decks/${formData.name}_${Date.now()}_${Math.random().toString(36).substring(2)}.pptx`; // Default to pptx
+      if (pitchDeckFile.type === 'application/pdf') {
+        fileName = `pitch_decks/${formData.name}_${Date.now()}_${Math.random().toString(36).substring(2)}.pdf`;
+      }
+
+      const storageRef = ref(storage, fileName);
+      await uploadBytes(storageRef, pitchDeckFile);
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      console.log('✅ Pitch deck uploaded successfully to Firebase Storage:', downloadURL);
+      return downloadURL;
+    } catch (error) {
+      console.error('❌ Pitch deck upload error:', error);
+      setPitchDeckUploadError('Pitch deck upload failed. Please try again.');
+      return null;
+    } finally {
+      setPitchDeckUploading(false);
+    }
+  };
+
   // Team member image upload handlers
   const handleTeamMemberImageChange = (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -427,6 +501,19 @@ const StartupRegistration: React.FC = () => {
         console.log('✅ Logo uploaded successfully:', logoUrl);
       }
       
+      // Upload pitch deck if selected
+      let pitchDeckUrl: string | undefined = formData.pitchDeck;
+      if (pitchDeckFile) {
+        console.log('📤 Uploading pitch deck...');
+        const uploadedUrl = await uploadPitchDeck();
+        if (uploadedUrl) {
+          pitchDeckUrl = uploadedUrl;
+          console.log('✅ Pitch deck uploaded successfully:', pitchDeckUrl);
+        } else {
+          throw new Error('Pitch deck upload failed. Please try again.');
+        }
+      }
+      
       // Upload team member images if selected
       console.log('📤 Uploading team member images...');
       const updatedTeam = await Promise.all(
@@ -469,7 +556,7 @@ const StartupRegistration: React.FC = () => {
         contactEmail: formData.contactEmail,
         contactPhone: formData.contactPhone,
         productVideo: formData.productVideo,
-        pitchDeck: formData.pitchDeck,
+        pitchDeck: pitchDeckUrl || undefined, // Use uploaded pitch deck URL or undefined
         qrCode: formData.qrCode,
         problem: formData.problem,
         solution: formData.solution,
@@ -797,13 +884,72 @@ const StartupRegistration: React.FC = () => {
               </div>
               <div>
                 <label className="block text-white/80 mb-2">Pitch Deck URL</label>
-                <input
-                  type="url"
-                  value={formData.pitchDeck}
-                  onChange={(e) => handleInputChange('pitchDeck', e.target.value)}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-[#e86888]"
-                  placeholder="Google Slides or PDF link"
-                />
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="file"
+                      accept=".ppt, .pptx, .pdf"
+                      onChange={handlePitchDeckChange}
+                      className="hidden"
+                      id="pitch-deck-upload"
+                    />
+                    <label
+                      htmlFor="pitch-deck-upload"
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white rounded-lg cursor-pointer hover:scale-105 transition-all"
+                    >
+                      <Upload size={16} />
+                      Choose Pitch Deck
+                    </label>
+                    {pitchDeckFile && (
+                      <button
+                        type="button"
+                        onClick={removePitchDeck}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all"
+                      >
+                        <X size={16} />
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  
+                  {pitchDeckUploadError && (
+                    <div className="flex items-center gap-2 text-red-400 text-sm">
+                      <AlertCircle size={16} />
+                      {pitchDeckUploadError}
+                    </div>
+                  )}
+                  
+                  {pitchDeckUploading && (
+                    <div className="flex items-center gap-2 text-blue-400 text-sm">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
+                      Uploading pitch deck...
+                    </div>
+                  )}
+                  
+                  {pitchDeckPreview && (
+                    <div className="mt-4">
+                      <p className="text-white/80 mb-2">Pitch Deck Preview:</p>
+                      <div className="w-full max-w-md mx-auto">
+                        {pitchDeckPreview.includes('application/pdf') ? (
+                          <iframe
+                            src={pitchDeckPreview}
+                            width="100%"
+                            height="400px"
+                            className="border border-white/20 rounded-lg"
+                          ></iframe>
+                        ) : (
+                          <div className="w-full h-40 border-2 border-white/20 rounded-lg overflow-hidden bg-white/10 flex items-center justify-center">
+                            <img
+                              src={pitchDeckPreview}
+                              alt="Pitch deck preview"
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <label className="block text-white/80 mb-2">Website URL</label>
