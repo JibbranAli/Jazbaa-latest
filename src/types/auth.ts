@@ -31,6 +31,26 @@ export interface Startup {
   createdAt: Date;
   interestedInvestors: string[]; // Array of investor UIDs who are interested
   hiringInvestors: string[]; // Array of investor UIDs who want to hire
+  // Additional profile fields
+  tagline?: string;
+  story?: string;
+  team?: any[];
+  website?: string;
+  appStore?: string;
+  playStore?: string;
+  demoUrl?: string;
+  qrCode?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  productVideo?: string;
+  pitchDeck?: string;
+  problem?: string;
+  solution?: string;
+  collaborationMessage?: string;
+  individualPitches?: any[];
+  slug?: string;
+  status?: string;
+  logo?: string; // Added logo field
 }
 
 export interface InvestorInterest {

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useInView } from 'react-intersection-observer';
-import { Zap, ExternalLink, TrendingUp, MessageCircle, Send } from 'lucide-react';
-import { Startup, Comment } from '../types/auth';
+import { Rocket, TrendingUp, Zap, MessageCircle, Send, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { ensureStartupProfile, getStartupProfileUrl } from '../utils/profileManager';
+import { Startup, Comment } from '../types/auth';
 
 interface StartupsSectionProps {
   isInvestorView?: boolean;
@@ -24,156 +24,91 @@ const StartupsSection: React.FC<StartupsSectionProps> = ({
   currentUser,
   comments = []
 }) => {
-  console.log('StartupsSection received comments:', comments);
-  console.log('StartupsSection received startups:', startups);
-  
+  const navigate = useNavigate();
+  const [startupsWithIds, setStartupsWithIds] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('all');
   const [showCommentForm, setShowCommentForm] = useState<string | null>(null);
   const [commentTexts, setCommentTexts] = useState<{ [key: string]: string }>({});
   const [commentTypes, setCommentTypes] = useState<{ [key: string]: 'investment' | 'hiring' | 'general' }>({});
-  const [firebaseStartups, setFirebaseStartups] = useState<Startup[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [ref, inView] = useInView({
-    triggerOnce: true,
-    threshold: 0.1,
-  });
-  const navigate = useNavigate();
 
-  // Fetch startups from Firebase
+  const sectors = ['all', 'Technology', 'Healthcare', 'Education', 'Finance', 'E-commerce', 
+    'Entertainment', 'Transportation', 'Food & Beverage', 'Real Estate', 
+    'Manufacturing', 'Energy', 'Environment', 'Sports', 'Fashion', 'Other'];
+
   useEffect(() => {
     const fetchStartups = async () => {
       try {
-        setLoading(true);
+        console.log('🔍 Fetching startups from Firebase...');
         const startupsRef = collection(db, 'startups');
-        // Remove status filter since existing startups don't have status field
-        const q = query(startupsRef, orderBy('createdAt', 'desc'));
-        const querySnapshot = await getDocs(q);
+        
+        // Remove any filters to get ALL startups
+        const querySnapshot = await getDocs(startupsRef);
         
         const fetchedStartups = querySnapshot.docs.map(doc => {
           const data = doc.data();
-          console.log('Raw startup data from Firebase:', { id: doc.id, ...data });
-          
+          console.log('📊 Startup data from Firebase:', { id: doc.id, name: data.name, sector: data.sector });
           return {
             id: doc.id,
-            name: data.name || 'Unknown Startup',
-            pitch: data.tagline || data.story || 'No description available',
-            sector: data.sector || 'Technology',
-            badges: data.badges || [],
-            special: data.special || null,
-            interestedInvestors: data.interestedInvestors || [],
-            hiringInvestors: data.hiringInvestors || [],
-            collegeId: data.collegeId || data.createdBy || 'unknown',
-            createdBy: data.createdBy || 'unknown',
-            createdAt: data.createdAt || new Date(),
-            slug: data.slug || doc.id,
-            status: data.status || 'active',
-            // Include additional fields for registered startups
-            tagline: data.tagline,
-            story: data.story,
-            team: data.team || [],
-            website: data.website,
-            appStore: data.appStore,
-            playStore: data.playStore,
-            demoUrl: data.demoUrl,
-            contactEmail: data.contactEmail,
-            contactPhone: data.contactPhone,
-            // New detailed profile fields
-            problem: data.problem,
-            solution: data.solution,
-            productVideo: data.productVideo,
-            pitchDeck: data.pitchDeck,
-            qrCode: data.qrCode,
-            collaborationMessage: data.collaborationMessage,
-            individualPitches: data.individualPitches || []
-          } as Startup;
+            ...data
+          };
         });
-        
-        setFirebaseStartups(fetchedStartups);
-        console.log('Fetched startups from Firebase:', fetchedStartups);
-        console.log('Total startups fetched:', fetchedStartups.length);
+
+        console.log('✅ Fetched startups count:', fetchedStartups.length);
+        console.log('✅ All fetched startups:', fetchedStartups);
+
+        // Ensure all startups have profile pages
+        for (const startup of fetchedStartups) {
+          try {
+            await ensureStartupProfile(startup);
+          } catch (profileError) {
+            console.warn('⚠️ Profile creation failed for startup:', startup.name, profileError);
+          }
+        }
+
+        // Combine fetched startups with passed startups prop
+        const allStartups = [...fetchedStartups, ...startups];
+        const uniqueStartups = allStartups.filter((startup, index, self) => 
+          index === self.findIndex(s => s.id === startup.id)
+        );
+
+        console.log('✅ Final unique startups count:', uniqueStartups.length);
+        console.log('✅ Final startups list:', uniqueStartups.map(s => ({ id: s.id, name: s.name, sector: s.sector })));
+
+        setStartupsWithIds(uniqueStartups);
       } catch (error) {
-        console.error('Error fetching startups:', error);
-        // Set empty array on error to prevent infinite loading
-        setFirebaseStartups([]);
-      } finally {
-        setLoading(false);
+        console.error('❌ Error fetching startups:', error);
+        console.error('❌ Error details:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined
+        });
+        setStartupsWithIds(startups);
       }
     };
 
     fetchStartups();
-  }, []);
+  }, [startups]);
 
-  // Combine passed startups with Firebase startups
-  const allStartups = [...startups, ...firebaseStartups];
-
-  // Get sectors from actual startup data
-  const sectors = ['all', ...Array.from(new Set(allStartups.map(s => s.sector)))];
-  
-  // Filter startups based on active tab
   const filteredStartups = activeTab === 'all' 
-    ? allStartups 
-    : allStartups.filter(startup => startup.sector === activeTab);
-
-  // Ensure all startups have IDs and are treated as real
-  const startupsWithIds = filteredStartups.map((startup: any, index: number) => ({
-    ...startup,
-    id: startup.id || startup.slug || `startup-${activeTab}-${index}`,
-    interestedInvestors: startup.interestedInvestors || [],
-    hiringInvestors: startup.hiringInvestors || [],
-    // Ensure required fields for registered startups
-    name: startup.name || 'Unknown Startup',
-    pitch: startup.pitch || startup.tagline || startup.story || 'No description available',
-    sector: startup.sector || 'Technology',
-    badges: startup.badges || []
-  }));
-
-  console.log('StartupsSection - Display startups:', {
-    totalStartups: allStartups.length,
-    filteredStartups: filteredStartups.length,
-    startupsWithIds: startupsWithIds.length,
-    activeTab,
-    isInvestorView,
-    loading
-  });
-
-  if (loading) {
-    return (
-      <section id="startups" className="py-20 bg-black relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#e86888]/10 to-[#7d7eed]/10"></div>
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#e86888] mx-auto mb-4"></div>
-            <p className="text-white/70">Loading startups...</p>
-          </div>
-        </div>
-      </section>
-    );
-  }
+    ? startupsWithIds 
+    : startupsWithIds.filter(startup => startup.sector === activeTab);
 
   return (
-    <section id="startups" className="py-20 bg-black relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-[#e86888]/10 to-[#7d7eed]/10"></div>
-      
-      <div ref={ref} className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div 
-          className="text-center mb-16"
-          initial={{ opacity: 0, y: 50 }}
-          animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.8 }}
-        >
+    <section className="py-20 bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="text-center mb-12">
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            {isInvestorView ? 'Available Startups' : 'Sector-wise Startups'}
+            {isInvestorView ? 'Discover Startups' : 'Featured Startups'}
           </h2>
-          <p className="text-xl text-white/80 max-w-3xl mx-auto">
+          <p className="text-xl text-white/70 max-w-3xl mx-auto">
             {isInvestorView 
-              ? 'Discover and invest in innovative solutions across various sectors.'
-              : 'Discover innovative solutions across various sectors, built by passionate students who dared to dream big and execute bigger.'
+              ? 'Explore innovative startups and connect with founders'
+              : 'Meet the innovative startups participating in JAZBAA 4.0'
             }
           </p>
-        </motion.div>
+        </div>
 
-        {/* Tab Navigation */}
-        <div className="flex flex-wrap justify-center gap-2 mb-12">
+        {/* Sector Filter Tabs */}
+        <div className="flex flex-wrap justify-center gap-4 mb-12">
           {sectors.map((sector) => (
             <button
               key={sector}
@@ -199,7 +134,7 @@ const StartupsSection: React.FC<StartupsSectionProps> = ({
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.5 }}
           >
-            {startupsWithIds.map((startup: any, index: number) => {
+            {filteredStartups.map((startup: any, index: number) => {
               console.log('Rendering startup:', startup);
               return (
                 <motion.div
@@ -209,29 +144,35 @@ const StartupsSection: React.FC<StartupsSectionProps> = ({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-r from-[#e86888] to-[#7d7eed] rounded-full flex items-center justify-center overflow-hidden">
-                      <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">
-                          {startup.name.split(' ').map((word: string) => word[0]).join('')}
-                        </span>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                        {startup.logo ? (
+                          <img
+                            src={startup.logo}
+                            alt={`${startup.name} logo`}
+                            className="w-8 h-8 object-contain"
+                          />
+                        ) : (
+                          <Rocket className="w-6 h-6 text-white" />
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg text-white">{startup.name}</h3>
+                        <p className="text-sm text-white/70">{startup.sector}</p>
                       </div>
                     </div>
                     {startup.special && (
-                      <span className="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-sm font-medium">
+                      <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-xs font-medium">
                         {startup.special}
                       </span>
                     )}
                   </div>
                   
-                  <h3 className="text-xl font-bold text-white mb-2">{startup.name}</h3>
                   <p className="text-white/70 mb-4">{startup.pitch}</p>
                   
                   <div className="flex flex-wrap gap-2 mb-4">
-                    <span className="bg-[#e86888]/20 text-white px-3 py-1 rounded-full text-sm">
-                      {startup.sector}
-                    </span>
-                    {startup.badges.map((badge: string) => (
+                    {startup.badges?.map((badge: string) => (
                       <span key={badge} className="bg-[#7d7eed]/20 text-white px-3 py-1 rounded-full text-sm">
                         {badge}
                       </span>
@@ -315,10 +256,25 @@ const StartupsSection: React.FC<StartupsSectionProps> = ({
                             <div className="flex gap-2">
                               <button
                                 onClick={() => {
-                                  if (commentTexts[startup.id]?.trim() && onCommentSubmit) {
-                                    onCommentSubmit(startup.id, commentTexts[startup.id]?.trim(), commentTypes[startup.id]);
+                                  const commentText = commentTexts[startup.id]?.trim();
+                                  const commentType = commentTypes[startup.id] || 'general';
+                                  
+                                  if (commentText && onCommentSubmit) {
+                                    console.log('Submitting comment:', {
+                                      startupId: startup.id,
+                                      comment: commentText,
+                                      type: commentType
+                                    });
+                                    
+                                    onCommentSubmit(startup.id, commentText, commentType);
                                     setCommentTexts({ ...commentTexts, [startup.id]: '' });
                                     setShowCommentForm(null);
+                                  } else {
+                                    console.warn('Comment submission failed:', {
+                                      hasComment: !!commentText,
+                                      hasOnCommentSubmit: !!onCommentSubmit,
+                                      commentType: commentType
+                                    });
                                   }
                                 }}
                                 className="flex-1 py-2 bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white rounded-lg font-medium transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2"
@@ -373,9 +329,14 @@ const StartupsSection: React.FC<StartupsSectionProps> = ({
                   ) : (
                     <button 
                       onClick={() => {
-                        // Navigate to startup profile page using slug
-                        const slug = startup.slug || startup.id || startup.name.toLowerCase().replace(/\s+/g, '-');
-                        navigate(`/startup/${slug}`);
+                        const profileUrl = getStartupProfileUrl(startup);
+                        console.log('🔗 Navigating to startup profile:', {
+                          startupName: startup.name,
+                          profileUrl: profileUrl,
+                          hasSlug: !!startup.slug,
+                          hasId: !!startup.id
+                        });
+                        navigate(profileUrl);
                       }}
                       className="w-full bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white py-3 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2 hover:scale-105 hover:shadow-lg hover:shadow-[#e86888]/25 active:scale-95 transform"
                     >
@@ -388,7 +349,7 @@ const StartupsSection: React.FC<StartupsSectionProps> = ({
           </motion.div>
         </AnimatePresence>
 
-        {startupsWithIds.length === 0 && (
+        {filteredStartups.length === 0 && (
           <div className="text-center text-white/60 text-xl">
             No startups found for the selected sector.
           </div>

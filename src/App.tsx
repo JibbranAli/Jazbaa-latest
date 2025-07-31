@@ -21,9 +21,16 @@ import Footer from './components/Footer';
 import InviteStartup from './components/admin/InviteStartup';
 import EmailTest from './components/admin/EmailTest';
 import StartupRegistration from './components/startup/StartupRegistration';
-import StartupProfile from './components/startup/StartupProfile';
+import StartupProfileTemplate from './components/startup/StartupProfileTemplate';
 import AuthTest from './components/AuthTest';
 import ErrorBoundary from './components/ErrorBoundary';
+import ProfileManager from './components/admin/ProfileManager';
+import DebugFirebase from './components/DebugFirebase';
+import ProductionTest from './components/ProductionTest';
+import RegistrationTest from './components/RegistrationTest';
+import DatabaseDebug from './components/DatabaseDebug';
+import CommentTest from './components/CommentTest';
+import CommentDebug from './components/CommentDebug';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ 
@@ -114,7 +121,7 @@ const AppContent: React.FC = () => {
           <Route path="/register/:token" element={<StartupRegistration />} />
           
           {/* Startup Profile Route */}
-          <Route path="/startup/:slug" element={<StartupProfile />} />
+          <Route path="/startup/:slug" element={<StartupProfileTemplate />} />
           
           {/* Protected Dashboard Routes */}
           <Route 
@@ -164,6 +171,54 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <AuthTest />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/profile-manager" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <ProfileManager />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/production-test" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <ProductionTest />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/registration-test" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <RegistrationTest />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/database-debug" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <DatabaseDebug />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/comment-test" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <CommentTest />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/comment-debug" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <CommentDebug />
               </ProtectedRoute>
             } 
           />

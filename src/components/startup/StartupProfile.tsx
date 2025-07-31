@@ -5,23 +5,8 @@ import { db } from '../../config/firebase';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import { 
-  Play, 
-  ExternalLink, 
-  Users, 
-  Video, 
-  FileText, 
-  Smartphone, 
-  QrCode, 
-  Mail, 
-  Phone, 
-  MessageCircle,
-  Download,
-  Globe,
-  Github,
-  Linkedin,
-  Award,
-  Calendar,
-  ArrowRight
+  Play, ExternalLink, Users, Video, FileText, Smartphone, QrCode, Mail, Phone, MessageCircle,
+  Download, Globe, Github, Linkedin, Award, Calendar, ArrowRight, Eye, Heart, Zap
 } from 'lucide-react';
 
 interface StartupData {
@@ -29,16 +14,16 @@ interface StartupData {
   tagline: string;
   story: string;
   storyImage?: string;
-  productVideo?: string;
-  pitchDeck?: string;
+  productVideo?: string | null;
+  pitchDeck?: string | null;
   team: TeamMember[];
-  website?: string;
-  appStore?: string;
-  playStore?: string;
-  demoUrl?: string;
-  qrCode?: string;
-  contactEmail?: string;
-  contactPhone?: string;
+  website?: string | null;
+  appStore?: string | null;
+  playStore?: string | null;
+  demoUrl?: string | null;
+  qrCode?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
   sector: string;
   badges: string[];
   special?: string;
@@ -51,6 +36,9 @@ interface StartupData {
   features?: string[];
   individualPitches?: IndividualPitch[];
   collaborationMessage?: string;
+  isPermanent?: boolean;
+  profileCreatedAt?: Date;
+  lastUpdated?: Date;
 }
 
 interface TeamMember {
@@ -90,20 +78,99 @@ const StartupProfile: React.FC = () => {
       }
 
       try {
+        console.log('🔍 Fetching PERMANENT startup profile for slug:', slug);
+        
+        // Try to fetch from main startups collection first
         const startupRef = doc(db, 'startups', slug);
         const startupDoc = await getDoc(startupRef);
 
-        if (!startupDoc.exists()) {
-          setError('Startup not found.');
-          setLoading(false);
-          return;
-        }
+        let startupData: StartupData | null = null;
 
-        const startupData = startupDoc.data() as StartupData;
-        setStartup(startupData);
+        if (startupDoc.exists()) {
+          startupData = startupDoc.data() as StartupData;
+          console.log('✅ Startup data fetched from main collection:', startupData);
+        } else {
+          // If not found in main collection, try backup collection
+          console.log('🔄 Startup not found in main collection, checking backup...');
+          try {
+            const backupRef = doc(db, 'permanent_profiles', slug);
+            const backupDoc = await getDoc(backupRef);
+            
+            if (backupDoc.exists()) {
+              startupData = backupDoc.data() as StartupData;
+              console.log('✅ Startup data fetched from backup collection:', startupData);
+            } else {
+              console.log('❌ Startup not found in either collection for slug:', slug);
+              setError('Startup profile not found. This profile may have been moved or deleted.');
+              setLoading(false);
+              return;
+            }
+          } catch (backupError) {
+            console.error('❌ Error checking backup collection:', backupError);
+            setError('Startup profile not found. This profile may have been moved or deleted.');
+            setLoading(false);
+            return;
+          }
+        }
+        
+        // Debug: Log all available fields
+        console.log('📊 Available data fields:', {
+          name: startupData.name,
+          tagline: startupData.tagline,
+          story: startupData.story,
+          sector: startupData.sector,
+          badges: startupData.badges,
+          team: startupData.team,
+          website: startupData.website,
+          productVideo: startupData.productVideo,
+          pitchDeck: startupData.pitchDeck,
+          problem: startupData.problem,
+          solution: startupData.solution,
+          collaborationMessage: startupData.collaborationMessage,
+          individualPitches: startupData.individualPitches,
+          contactEmail: startupData.contactEmail,
+          contactPhone: startupData.contactPhone,
+          demoUrl: startupData.demoUrl,
+          appStore: startupData.appStore,
+          playStore: startupData.playStore,
+          qrCode: startupData.qrCode
+        });
+        
+        // Ensure all required fields have fallbacks for PERMANENT display
+        const processedData = {
+          ...startupData,
+          name: startupData.name || 'Unknown Startup',
+          tagline: startupData.tagline || 'No tagline available',
+          story: startupData.story || 'No story available',
+          team: startupData.team || [],
+          badges: startupData.badges || [],
+          sector: startupData.sector || 'Technology',
+          slug: startupData.slug || slug,
+          // Ensure permanent status
+          isPermanent: startupData.isPermanent || true,
+          profileCreatedAt: startupData.profileCreatedAt || startupData.createdAt || new Date(),
+          lastUpdated: startupData.lastUpdated || new Date(),
+          // Ensure all optional fields have proper fallbacks
+          problem: startupData.problem || 'Problem description not available',
+          solution: startupData.solution || 'Solution description not available',
+          collaborationMessage: startupData.collaborationMessage || 'We are open to collaboration, funding, and partnerships.',
+          individualPitches: startupData.individualPitches || [],
+          contactEmail: startupData.contactEmail || 'contact@startup.com',
+          contactPhone: startupData.contactPhone || 'Not provided',
+          demoUrl: startupData.demoUrl || null,
+          appStore: startupData.appStore || null,
+          playStore: startupData.playStore || null,
+          qrCode: startupData.qrCode || null,
+          productVideo: startupData.productVideo || null,
+          pitchDeck: startupData.pitchDeck || null,
+          website: startupData.website || null
+        };
+        
+        setStartup(processedData);
+        console.log('✅ PERMANENT startup profile processed and set:', processedData);
       } catch (error) {
-        console.error('Error fetching startup:', error);
-        setError('Error loading startup profile.');
+        console.error('❌ Error fetching permanent startup profile:', error);
+        setError('Error loading permanent startup profile. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -114,7 +181,7 @@ const StartupProfile: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-indigo-900 text-white flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <p>Loading startup profile...</p>
@@ -125,7 +192,7 @@ const StartupProfile: React.FC = () => {
 
   if (error || !startup) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-indigo-900 text-white flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="text-red-400 text-6xl mb-4">❌</div>
           <h1 className="text-2xl font-bold mb-4">Startup Not Found</h1>
@@ -142,37 +209,75 @@ const StartupProfile: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
-      {/* 1. Hero Banner */}
-      <section className="relative py-20 px-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-indigo-900 text-white">
+      {/* Debug Section - Remove in production */}
+      {startup && (
+        <section className="py-8 px-6 bg-yellow-500/10 border border-yellow-500/30">
+          <div className="max-w-4xl mx-auto">
+            <h3 className="text-yellow-400 font-semibold mb-4">🔧 Debug Info</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-yellow-300"><strong>Name:</strong> {startup.name}</p>
+                <p className="text-yellow-300"><strong>Tagline:</strong> {startup.tagline}</p>
+                <p className="text-yellow-300"><strong>Sector:</strong> {startup.sector}</p>
+                <p className="text-yellow-300"><strong>Badges:</strong> {startup.badges.join(', ')}</p>
+                <p className="text-yellow-300"><strong>Team Members:</strong> {startup.team.length}</p>
+              </div>
+              <div>
+                <p className="text-yellow-300"><strong>Website:</strong> {startup.website || 'Not provided'}</p>
+                <p className="text-yellow-300"><strong>Product Video:</strong> {startup.productVideo || 'Not provided'}</p>
+                <p className="text-yellow-300"><strong>Pitch Deck:</strong> {startup.pitchDeck || 'Not provided'}</p>
+                <p className="text-yellow-300"><strong>Contact Email:</strong> {startup.contactEmail || 'Not provided'}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                console.log('🔍 Full startup data:', startup);
+                alert('Check browser console for full data');
+              }}
+              className="mt-4 px-4 py-2 bg-yellow-600 text-white rounded text-sm"
+            >
+              View Full Data in Console
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* 1. Hero Banner (Full Width Top Section) */}
+      <section className="relative py-20 px-6 bg-gradient-to-br from-gray-900 via-blue-900 to-indigo-900">
         <div className="absolute inset-0 bg-gradient-to-br from-[#e86888]/10 to-[#7d7eed]/10"></div>
         <div className="relative z-10 max-w-6xl mx-auto">
           <motion.div 
-            className="text-center mb-12"
+            className="text-center"
             initial={{ opacity: 0, y: 50 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.8 }}
           >
-            {/* Logo */}
+            {/* Product Logo */}
             <div className="mb-8">
-              <div className="w-24 h-24 bg-gradient-to-r from-[#e86888] to-[#7d7eed] rounded-full mx-auto flex items-center justify-center overflow-hidden">
-                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
-                  <span className="text-white text-2xl font-bold">
+              <div className="w-32 h-32 bg-gradient-to-r from-[#e86888] to-[#7d7eed] rounded-full mx-auto flex items-center justify-center overflow-hidden shadow-2xl">
+                <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center">
+                  <span className="text-white text-3xl font-bold">
                     {startup.name.split(' ').map((word: string) => word[0]).join('')}
                   </span>
                 </div>
               </div>
             </div>
 
-            <h1 className="text-5xl md:text-6xl font-bold mb-6">{startup.name}</h1>
-            <p className="text-xl md:text-2xl text-gray-300 mb-8">{startup.tagline}</p>
+            {/* Name & Tagline */}
+            <h1 className="text-6xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+              {startup.name}
+            </h1>
+            <p className="text-2xl md:text-3xl text-gray-300 mb-8 max-w-4xl mx-auto">
+              {startup.tagline}
+            </p>
             
             {/* Badges */}
-            <div className="flex flex-wrap justify-center gap-2 mb-8">
+            <div className="flex flex-wrap justify-center gap-3 mb-8">
               {startup.badges.map((badge, index) => (
                 <span
                   key={index}
-                  className="px-3 py-1 bg-blue-600/20 border border-blue-500/30 rounded-full text-sm text-blue-300"
+                  className="px-4 py-2 bg-blue-600/20 border border-blue-500/30 rounded-full text-sm text-blue-300 font-medium"
                 >
                   {badge}
                 </span>
@@ -180,15 +285,15 @@ const StartupProfile: React.FC = () => {
             </div>
 
             {/* Sector */}
-            <div className="inline-block px-4 py-2 bg-purple-600/20 border border-purple-500/30 rounded-lg text-purple-300 mb-8">
+            <div className="inline-block px-6 py-3 bg-purple-600/20 border border-purple-500/30 rounded-lg text-purple-300 mb-8 font-medium">
               {startup.sector}
             </div>
 
             {/* Call-to-Actions */}
             <div className="flex flex-wrap justify-center gap-4">
               {startup.productVideo && (
-                <button className="px-6 py-3 bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white rounded-full font-medium transition-all duration-300 hover:scale-105 flex items-center gap-2">
-                  <Play size={20} />
+                <button className="px-8 py-4 bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white rounded-full font-medium transition-all duration-300 hover:scale-105 flex items-center gap-3 shadow-lg">
+                  <Play size={24} />
                   Watch Product Video
                 </button>
               )}
@@ -198,15 +303,15 @@ const StartupProfile: React.FC = () => {
                   href={startup.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-6 py-3 bg-white/10 border border-white/20 text-white rounded-full font-medium transition-all duration-300 hover:bg-white/20 flex items-center gap-2"
+                  className="px-8 py-4 bg-white/10 border border-white/20 text-white rounded-full font-medium transition-all duration-300 hover:bg-white/20 flex items-center gap-3"
                 >
-                  <Globe size={20} />
+                  <Globe size={24} />
                   Explore Website
                 </a>
               )}
 
-              <button className="px-6 py-3 bg-white/10 border border-white/20 text-white rounded-full font-medium transition-all duration-300 hover:bg-white/20 flex items-center gap-2">
-                <Users size={20} />
+              <button className="px-8 py-4 bg-white/10 border border-white/20 text-white rounded-full font-medium transition-all duration-300 hover:bg-white/20 flex items-center gap-3">
+                <Users size={24} />
                 Meet the Team
               </button>
             </div>
@@ -215,29 +320,33 @@ const StartupProfile: React.FC = () => {
       </section>
 
       {/* 2. Product Introduction — Story Behind the Startup */}
-      <section className="py-16 px-6">
+      <section className="py-20 px-6 bg-gradient-to-br from-gray-900 to-blue-900">
         <div className="max-w-4xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-3xl font-bold mb-4 text-center">Why We Built This</h2>
-            <p className="text-xl text-gray-300 mb-8 text-center">Born from a real problem. Built with purpose.</p>
+            <h2 className="text-4xl font-bold mb-4 text-center bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+              Why We Built This
+            </h2>
+            <p className="text-xl text-gray-300 mb-12 text-center">
+              Born from a real problem. Built with purpose.
+            </p>
             
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-8">
-              <p className="text-lg leading-relaxed text-gray-300 mb-6">{startup.story}</p>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
+              <p className="text-lg leading-relaxed text-gray-300 mb-8">{startup.story}</p>
               
               {startup.problem && (
-                <div className="mb-6">
-                  <h3 className="text-xl font-semibold mb-3 text-white">The Problem</h3>
+                <div className="mb-8 p-6 bg-red-500/10 border border-red-500/30 rounded-lg">
+                  <h3 className="text-xl font-semibold mb-3 text-red-300">The Problem</h3>
                   <p className="text-gray-300">{startup.problem}</p>
                 </div>
               )}
 
               {startup.solution && (
-                <div>
-                  <h3 className="text-xl font-semibold mb-3 text-white">Our Solution</h3>
+                <div className="p-6 bg-green-500/10 border border-green-500/30 rounded-lg">
+                  <h3 className="text-xl font-semibold mb-3 text-green-300">Our Solution</h3>
                   <p className="text-gray-300">{startup.solution}</p>
                 </div>
               )}
@@ -248,52 +357,65 @@ const StartupProfile: React.FC = () => {
 
       {/* 3. The Solution — What We've Built */}
       {startup.productVideo && (
-        <section className="py-16 px-6">
+        <section className="py-20 px-6 bg-gradient-to-br from-blue-900 to-indigo-900">
           <div className="max-w-4xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6 }}
             >
-              <h2 className="text-3xl font-bold mb-4 text-center">Our Product in Action</h2>
-              <p className="text-xl text-gray-300 mb-8 text-center">Solving a Real Problem, One Feature at a Time.</p>
+              <h2 className="text-4xl font-bold mb-4 text-center bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                Our Product in Action
+              </h2>
+              <p className="text-xl text-gray-300 mb-12 text-center">
+                Solving a Real Problem, One Feature at a Time.
+              </p>
               
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-8">
-                <div className="aspect-video bg-black/20 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <Video size={48} className="mx-auto mb-4 text-gray-400" />
-                    <p className="text-gray-400">Product Video: {startup.productVideo}</p>
-                  </div>
-                </div>
+              <div className="relative aspect-video rounded-2xl overflow-hidden shadow-2xl border border-white/20">
+                <iframe
+                  src={startup.productVideo.replace('watch?v=', 'embed/')}
+                  title="Product Video"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="absolute inset-0 w-full h-full"
+                ></iframe>
               </div>
             </motion.div>
           </div>
         </section>
       )}
 
-      {/* 4. Pitch Deck */}
+      {/* 4. Pitch Deck (Embedded Viewer) */}
       {startup.pitchDeck && (
-        <section className="py-16 px-6">
+        <section className="py-20 px-6 bg-gradient-to-br from-indigo-900 to-purple-900">
           <div className="max-w-4xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6 }}
             >
-              <h2 className="text-3xl font-bold mb-4 text-center">See Our Vision</h2>
-              <p className="text-xl text-gray-300 mb-8 text-center">View our Investor Pitch Deck to know our mission, model, and market.</p>
+              <h2 className="text-4xl font-bold mb-4 text-center bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                See Our Vision
+              </h2>
+              <p className="text-xl text-gray-300 mb-12 text-center">
+                View our Investor Pitch Deck to know our mission, model, and market.
+              </p>
               
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-8">
-                <div className="aspect-video bg-black/20 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <FileText size={48} className="mx-auto mb-4 text-gray-400" />
-                    <p className="text-gray-400 mb-4">Pitch Deck: {startup.pitchDeck}</p>
-                    <button className="px-4 py-2 bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white rounded-lg font-medium transition-all duration-300 hover:scale-105 flex items-center gap-2 mx-auto">
-                      <Download size={16} />
-                      Download Deck
-                    </button>
-                  </div>
-                </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 text-center border border-white/20">
+                <FileText size={80} className="text-blue-400 mx-auto mb-6" />
+                <h3 className="text-3xl font-semibold mb-4">Download Pitch Deck</h3>
+                <p className="text-gray-300 mb-8 text-lg">
+                  Get a comprehensive overview of our startup, market analysis, and growth strategy.
+                </p>
+                <a
+                  href={startup.pitchDeck}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white rounded-full font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-[#e86888]/25 active:scale-95 transform"
+                >
+                  <Download size={24} className="mr-3" /> Download Now
+                </a>
               </div>
             </motion.div>
           </div>
@@ -301,69 +423,71 @@ const StartupProfile: React.FC = () => {
       )}
 
       {/* 5. Meet the Innovators */}
-      <section className="py-16 px-6">
+      <section className="py-20 px-6 bg-gradient-to-br from-purple-900 to-pink-900">
         <div className="max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-3xl font-bold mb-4 text-center">Brains Behind the Build</h2>
-            <p className="text-xl text-gray-300 mb-8 text-center">Student Innovators Who Dared to Dream & Do</p>
+            <h2 className="text-4xl font-bold mb-4 text-center bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+              Brains Behind the Build
+            </h2>
+            <p className="text-xl text-gray-300 mb-12 text-center">
+              Student Innovators Who Dared to Dream & Do
+            </p>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {startup.team.map((member, index) => (
-                <motion.div
-                  key={index}
-                  className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/10"
+                <motion.div 
+                  key={index} 
+                  className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 hover:bg-white/20 transition-all duration-300"
                   initial={{ opacity: 0, y: 20 }}
                   animate={inView ? { opacity: 1, y: 0 } : {}}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
                 >
                   <div className="text-center">
-                    <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-bold">
+                    <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto mb-6 flex items-center justify-center text-3xl font-bold shadow-lg">
                       {member.name.charAt(0)}
                     </div>
-                    <h3 className="text-xl font-semibold mb-2">{member.name}</h3>
-                    <p className="text-gray-400 mb-4">{member.role}</p>
+                    <h3 className="text-2xl font-semibold mb-2">{member.name}</h3>
+                    <p className="text-gray-400 mb-4 text-lg">{member.role}</p>
                     
                     {member.hiring && (
-                      <span className="inline-block px-3 py-1 bg-green-600/20 border border-green-500/30 rounded-full text-sm text-green-300 mb-4">
+                      <span className="inline-block px-4 py-2 bg-green-600/20 border border-green-500/30 rounded-full text-sm text-green-300 mb-4 font-medium">
                         Available for Hiring
                       </span>
                     )}
                     
-                    <div className="flex justify-center gap-3">
+                    <div className="flex justify-center gap-4">
                       {member.linkedin && (
-                        <a
-                          href={member.linkedin}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 bg-blue-600/20 border border-blue-500/30 rounded-lg text-blue-300 hover:bg-blue-600/30 transition-colors"
+                        <a 
+                          href={member.linkedin} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="p-3 bg-blue-600/20 border border-blue-500/30 rounded-lg text-blue-300 hover:bg-blue-600/30 transition-colors"
                         >
-                          <Linkedin size={16} />
+                          <Linkedin size={20} />
                         </a>
                       )}
-                      
                       {member.github && (
-                        <a
-                          href={member.github}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 bg-gray-600/20 border border-gray-500/30 rounded-lg text-gray-300 hover:bg-gray-600/30 transition-colors"
+                        <a 
+                          href={member.github} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="p-3 bg-gray-600/20 border border-gray-500/30 rounded-lg text-gray-300 hover:bg-gray-600/30 transition-colors"
                         >
-                          <Github size={16} />
+                          <Github size={20} />
                         </a>
                       )}
-                      
                       {member.portfolio && (
-                        <a
-                          href={member.portfolio}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 bg-purple-600/20 border border-purple-500/30 rounded-lg text-purple-300 hover:bg-purple-600/30 transition-colors"
+                        <a 
+                          href={member.portfolio} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="p-3 bg-purple-600/20 border border-purple-500/30 rounded-lg text-purple-300 hover:bg-purple-600/30 transition-colors"
                         >
-                          <ExternalLink size={16} />
+                          <ExternalLink size={20} />
                         </a>
                       )}
                     </div>
@@ -376,42 +500,49 @@ const StartupProfile: React.FC = () => {
       </section>
 
       {/* 6. Individual Pitch Videos */}
-      {startup.individualPitches && startup.individualPitches.length > 0 && (
-        <section className="py-16 px-6">
+      {startup.team.some(member => member.pitchVideo) && (
+        <section className="py-20 px-6 bg-gradient-to-br from-pink-900 to-red-900">
           <div className="max-w-6xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6 }}
             >
-              <h2 className="text-3xl font-bold mb-4 text-center">Want to Hire Our Talent?</h2>
-              <p className="text-xl text-gray-300 mb-8 text-center">Beyond Founders — Talented Developers Open to Opportunities</p>
+              <h2 className="text-4xl font-bold mb-4 text-center bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                Want to Hire Our Talent?
+              </h2>
+              <p className="text-xl text-gray-300 mb-12 text-center">
+                Beyond Founders — Talented Developers Open to Opportunities
+              </p>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {startup.individualPitches.map((pitch, index) => (
-                  <motion.div
-                    key={index}
-                    className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/10"
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {startup.team.filter(member => member.pitchVideo).map((member, index) => (
+                  <motion.div 
+                    key={index} 
+                    className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20"
                     initial={{ opacity: 0, y: 20 }}
                     animate={inView ? { opacity: 1, y: 0 } : {}}
                     transition={{ duration: 0.6, delay: index * 0.1 }}
                   >
                     <div className="text-center">
-                      <h3 className="text-xl font-semibold mb-2">{pitch.name}</h3>
-                      <p className="text-gray-400 mb-4">{pitch.role}</p>
+                      <Video size={48} className="text-green-400 mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold mb-2">{member.name}</h3>
+                      <p className="text-gray-400 mb-4">{member.role}</p>
                       
-                      {pitch.hiring && (
+                      {member.hiring && (
                         <span className="inline-block px-3 py-1 bg-green-600/20 border border-green-500/30 rounded-full text-sm text-green-300 mb-4">
-                          Open to Explore Offers
+                          Available for Hiring
                         </span>
                       )}
                       
-                      <div className="aspect-video bg-black/20 rounded-lg flex items-center justify-center">
-                        <div className="text-center">
-                          <Video size={32} className="mx-auto mb-2 text-gray-400" />
-                          <p className="text-gray-400 text-sm">Pitch Video</p>
-                        </div>
-                      </div>
+                      <a
+                        href={member.pitchVideo}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-teal-600 text-white rounded-full font-medium transition-all duration-300 hover:scale-105"
+                      >
+                        <Play size={18} className="mr-2" /> Watch Pitch
+                      </a>
                     </div>
                   </motion.div>
                 ))}
@@ -422,58 +553,63 @@ const StartupProfile: React.FC = () => {
       )}
 
       {/* 7. Live Demo & Product Access */}
-      <section className="py-16 px-6">
+      <section className="py-20 px-6 bg-gradient-to-br from-red-900 to-orange-900">
         <div className="max-w-4xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-3xl font-bold mb-4 text-center">Try It Yourself</h2>
+            <h2 className="text-4xl font-bold mb-4 text-center bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+              Try It Yourself
+            </h2>
+            <p className="text-xl text-gray-300 mb-12 text-center">
+              Experience our product firsthand.
+            </p>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {startup.demoUrl && (
-                <a
-                  href={startup.demoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/10 hover:bg-white/20 transition-colors text-center"
+                <a 
+                  href={startup.demoUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 hover:bg-white/20 transition-colors text-center group"
                 >
-                  <Globe className="text-3xl mb-4 mx-auto" />
+                  <Globe className="text-4xl mb-4 mx-auto group-hover:scale-110 transition-transform" />
                   <h3 className="text-lg font-semibold mb-2">Live Website</h3>
                   <p className="text-gray-400 text-sm">Try our product online</p>
                 </a>
               )}
-
+              
               {startup.appStore && (
-                <a
-                  href={startup.appStore}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/10 hover:bg-white/20 transition-colors text-center"
+                <a 
+                  href={startup.appStore} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 hover:bg-white/20 transition-colors text-center group"
                 >
-                  <Smartphone className="text-3xl mb-4 mx-auto" />
+                  <Smartphone className="text-4xl mb-4 mx-auto group-hover:scale-110 transition-transform" />
                   <h3 className="text-lg font-semibold mb-2">App Store</h3>
                   <p className="text-gray-400 text-sm">Download on iOS</p>
                 </a>
               )}
-
+              
               {startup.playStore && (
-                <a
-                  href={startup.playStore}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/10 hover:bg-white/20 transition-colors text-center"
+                <a 
+                  href={startup.playStore} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 hover:bg-white/20 transition-colors text-center group"
                 >
-                  <Smartphone className="text-3xl mb-4 mx-auto" />
+                  <Smartphone className="text-4xl mb-4 mx-auto group-hover:scale-110 transition-transform" />
                   <h3 className="text-lg font-semibold mb-2">Play Store</h3>
                   <p className="text-gray-400 text-sm">Download on Android</p>
                 </a>
               )}
-
+              
               {startup.qrCode && (
-                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/10 text-center">
-                  <QrCode className="text-3xl mb-4 mx-auto" />
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 text-center">
+                  <QrCode className="text-4xl mb-4 mx-auto" />
                   <h3 className="text-lg font-semibold mb-2">QR Code</h3>
                   <p className="text-gray-400 text-sm">Scan for instant access</p>
                 </div>
@@ -484,42 +620,40 @@ const StartupProfile: React.FC = () => {
       </section>
 
       {/* 8. Call for Collaboration */}
-      <section className="py-16 px-6">
+      <section className="py-20 px-6 bg-gradient-to-br from-orange-900 to-yellow-900">
         <div className="max-w-4xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-3xl font-bold mb-4 text-center">Take Our Dream Further</h2>
-            <p className="text-xl text-gray-300 mb-8 text-center">
-              {startup.collaborationMessage || "We're open to funding, incubation, mentorship, or partnership"}
+            <h2 className="text-4xl font-bold mb-4 text-center bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+              Take Our Dream Further
+            </h2>
+            <p className="text-xl text-gray-300 mb-12 text-center">
+              {startup.collaborationMessage}
             </p>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {startup.contactEmail && (
-                <a
-                  href={`mailto:${startup.contactEmail}`}
-                  className="px-6 py-3 bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white rounded-lg font-medium transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2"
+                <a 
+                  href={`mailto:${startup.contactEmail}`} 
+                  className="px-8 py-4 bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white rounded-2xl font-medium transition-all duration-300 hover:scale-105 flex items-center justify-center gap-3 shadow-lg"
                 >
-                  <Mail size={20} />
-                  Contact Founders
+                  <Mail size={24} /> Contact Founders
                 </a>
               )}
-
-              <button className="px-6 py-3 bg-white/10 border border-white/20 text-white rounded-lg font-medium transition-all duration-300 hover:bg-white/20 flex items-center justify-center gap-2">
-                <Calendar size={20} />
-                Book a 1:1 Call
+              
+              <button className="px-8 py-4 bg-white/10 border border-white/20 text-white rounded-2xl font-medium transition-all duration-300 hover:bg-white/20 flex items-center justify-center gap-3">
+                <Calendar size={24} /> Book a 1:1 Call
               </button>
-
-              <button className="px-6 py-3 bg-white/10 border border-white/20 text-white rounded-lg font-medium transition-all duration-300 hover:bg-white/20 flex items-center justify-center gap-2">
-                <FileText size={20} />
-                Request Detailed Deck
+              
+              <button className="px-8 py-4 bg-white/10 border border-white/20 text-white rounded-2xl font-medium transition-all duration-300 hover:bg-white/20 flex items-center justify-center gap-3">
+                <FileText size={24} /> Request Detailed Deck
               </button>
-
-              <button className="px-6 py-3 bg-white/10 border border-white/20 text-white rounded-lg font-medium transition-all duration-300 hover:bg-white/20 flex items-center justify-center gap-2">
-                <Award size={20} />
-                Support via CSR / Grant
+              
+              <button className="px-8 py-4 bg-white/10 border border-white/20 text-white rounded-2xl font-medium transition-all duration-300 hover:bg-white/20 flex items-center justify-center gap-3">
+                <Award size={24} /> Support via CSR / Grant
               </button>
             </div>
           </motion.div>
@@ -527,25 +661,25 @@ const StartupProfile: React.FC = () => {
       </section>
 
       {/* 9. Footer Section */}
-      <footer className="py-8 px-6 border-t border-white/10">
+      <footer className="py-12 px-6 bg-gradient-to-br from-yellow-900 to-gray-900 border-t border-white/10">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="mb-6">
-            <div className="w-16 h-16 bg-gradient-to-r from-[#e86888] to-[#7d7eed] rounded-full mx-auto flex items-center justify-center overflow-hidden mb-4">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <span className="text-white text-lg font-bold">
+          <div className="mb-8">
+            <div className="w-20 h-20 bg-gradient-to-r from-[#e86888] to-[#7d7eed] rounded-full mx-auto mb-6 flex items-center justify-center overflow-hidden shadow-lg">
+              <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
+                <span className="text-white text-xl font-bold">
                   {startup.name.split(' ').map((word: string) => word[0]).join('')}
                 </span>
               </div>
             </div>
-            <h3 className="text-xl font-bold mb-2">{startup.name}</h3>
+            <h3 className="text-2xl font-bold mb-4">{startup.name}</h3>
           </div>
           
-          <div className="flex items-center justify-center gap-4 mb-6">
+          <div className="flex items-center justify-center gap-4 mb-8">
             <span className="text-gray-400">Powered by</span>
-            <div className="flex items-center gap-2">
-              <span className="text-white font-semibold">JAZBAA</span>
+            <div className="flex items-center gap-3">
+              <span className="text-white font-semibold text-lg">JAZBAA</span>
               <span className="text-gray-400">+</span>
-              <span className="text-white font-semibold">LinuxWorld</span>
+              <span className="text-white font-semibold text-lg">LinuxWorld</span>
             </div>
           </div>
           

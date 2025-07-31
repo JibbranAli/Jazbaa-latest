@@ -83,9 +83,9 @@ const Navigation = () => {
             whileHover={{ scale: 1.05 }}
           >
             <Link to="/">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-[#e86888] to-[#7d7eed] bg-clip-text text-transparent">
-                JAZBAA 4.0
-              </h1>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-[#e86888] to-[#7d7eed] bg-clip-text text-transparent">
+              JAZBAA 4.0
+            </h1>
             </Link>
           </motion.div>
           

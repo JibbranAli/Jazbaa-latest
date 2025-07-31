@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
-import { collection, getDocs, doc, updateDoc, arrayUnion, arrayRemove, addDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, updateDoc, arrayUnion, arrayRemove, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { Startup, Comment } from '../../types/auth';
 import { TrendingUp, Building, Filter, Award } from 'lucide-react';
 import StartupsSection from '../StartupsSection';
+import { ensureStartupProfile, getStartupProfileUrl } from '../../utils/profileManager';
 
 const InvestorDashboard: React.FC = () => {
   const { currentUser } = useAuth();
@@ -20,19 +21,35 @@ const InvestorDashboard: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      console.log('Fetching investor data...');
+      console.log('Fetching data for investor dashboard...');
       
-      const [startupsCollection, commentsCollection] = await Promise.all([
-        getDocs(collection(db, 'startups')),
-        getDocs(collection(db, 'comments'))
-      ]);
+      // Fetch startups
+      const startupsCollection = await getDocs(collection(db, 'startups'));
+      console.log('Startups collection size:', startupsCollection.docs.length);
       
-      const startupsData = startupsCollection.docs.map(doc => {
+      // Fetch comments
+      const commentsCollection = await getDocs(collection(db, 'comments'));
+      console.log('Comments collection size:', commentsCollection.docs.length);
+      
+      const startupsData = await Promise.all(startupsCollection.docs.map(async (doc) => {
         const data = doc.data();
         console.log('Raw startup data:', data);
         
+        // Ensure this startup has a profile page created
+        const slug = data.slug || doc.id || data.name?.toLowerCase().replace(/\s+/g, '-') || `startup-${doc.id}`;
+        try {
+          await ensureStartupProfile({
+            ...data,
+            id: doc.id,
+            slug: slug
+          });
+          console.log('✅ Ensured profile exists for:', data.name || doc.id);
+        } catch (profileError) {
+          console.warn('⚠️ Failed to ensure profile for:', data.name || doc.id, profileError);
+        }
+        
         // Transform registered startup data to match expected format
-        const transformedData = {
+        const transformedData: Startup = {
           id: doc.id,
           name: data.name || 'Unknown Startup',
           pitch: data.tagline || data.story || 'No description available',
@@ -54,7 +71,7 @@ const InvestorDashboard: React.FC = () => {
           demoUrl: data.demoUrl,
           contactEmail: data.contactEmail,
           contactPhone: data.contactPhone,
-          slug: data.slug || doc.id,
+          slug: slug, // Use the ensured slug
           status: data.status || 'active',
           // New detailed profile fields
           problem: data.problem,
@@ -68,7 +85,7 @@ const InvestorDashboard: React.FC = () => {
         
         console.log('Transformed startup data:', transformedData);
         return transformedData;
-      }) as Startup[];
+      }));
       
       const commentsData = commentsCollection.docs.map(doc => {
         const data = {
@@ -175,16 +192,30 @@ const InvestorDashboard: React.FC = () => {
       return;
     }
     
+    if (!comment || comment.trim() === '') {
+      console.error('No comment text provided');
+      alert('Error: Please enter a comment');
+      return;
+    }
+    
+    // Ensure type is always defined
+    const commentType = type || 'general';
+    
     try {
-      console.log(`Submitting comment for startup ${startupId}: ${comment}`);
+      console.log(`Submitting comment for startup ${startupId}:`, {
+        comment: comment.trim(),
+        type: commentType,
+        investorId: currentUser.uid,
+        investorName: currentUser.displayName || currentUser.email
+      });
       
       const newComment: Omit<Comment, 'id'> = {
         investorId: currentUser.uid,
         investorName: currentUser.displayName || currentUser.email,
         startupId,
-        comment,
+        comment: comment.trim(),
         timestamp: new Date(),
-        type
+        type: commentType
       };
       
       console.log('Adding comment to Firestore:', newComment);

@@ -5,7 +5,7 @@ import { collection, getDocs, doc, setDoc, addDoc, deleteDoc } from 'firebase/fi
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../../config/firebase';
 import { Startup, User, Comment } from '../../types/auth';
-import { Zap, ExternalLink, Users, TrendingUp, Building, Plus, UserPlus, Trash2, Edit, Key, MessageCircle } from 'lucide-react';
+import { Zap, ExternalLink, Users, TrendingUp, Building, Plus, UserPlus, Trash2, Edit, Key, MessageCircle, User as UserIcon } from 'lucide-react';
 
 const AdminDashboard: React.FC = () => {
   const { currentUser } = useAuth();
@@ -62,15 +62,47 @@ const AdminDashboard: React.FC = () => {
         ...doc.data()
       })) as User[];
       
-      const commentsData = commentsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Comment[];
+      const commentsData = commentsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('Raw comment data:', { id: doc.id, ...data });
+        
+        // Handle timestamp conversion properly
+        let timestamp;
+        if (data.timestamp) {
+          if (data.timestamp.toDate) {
+            timestamp = data.timestamp.toDate();
+          } else if (data.timestamp instanceof Date) {
+            timestamp = data.timestamp;
+          } else {
+            timestamp = new Date(data.timestamp);
+          }
+        } else {
+          timestamp = new Date();
+        }
+        
+        return {
+          id: doc.id,
+          investorId: data.investorId || '',
+          investorName: data.investorName || 'Unknown Investor',
+          startupId: data.startupId || '',
+          comment: data.comment || '',
+          timestamp: timestamp,
+          type: data.type || 'general'
+        };
+      }) as Comment[];
       
       console.log('Found startups:', startupsData.length);
       console.log('Found users:', usersData.length);
       console.log('Found comments:', commentsData.length);
       console.log('Comments data:', commentsData);
+      console.log('Comments with details:', commentsData.map(c => ({
+        id: c.id,
+        investorName: c.investorName,
+        startupName: getStartupName(c.startupId),
+        comment: c.comment,
+        type: c.type,
+        timestamp: c.timestamp
+      })));
       console.log('Startups with investors:', startupsData.filter(s => s.interestedInvestors?.length > 0 || s.hiringInvestors?.length > 0));
       
       setStartups(startupsData);
@@ -173,14 +205,95 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
+    if (confirm('Are you sure you want to delete this user?')) {
       try {
         await deleteDoc(doc(db, 'users', userId));
-        setUsers(users.filter(user => user.uid !== userId));
-        console.log('User deleted successfully');
-      } catch (error) {
+        await fetchData();
+        alert('User deleted successfully!');
+      } catch (error: any) {
         console.error('Error deleting user:', error);
+        alert(`Error deleting user: ${error.message}`);
       }
+    }
+  };
+
+  const testCommentSubmission = async () => {
+    try {
+      const testComment = {
+        investorId: 'test-investor-id',
+        investorName: 'Test Investor (ram@gmail.com)',
+        startupId: 'test-startup-id',
+        comment: 'This is a test comment from admin dashboard to verify comment storage and display',
+        timestamp: new Date(),
+        type: 'general' as const
+      };
+      
+      console.log('Adding test comment:', testComment);
+      const docRef = await addDoc(collection(db, 'comments'), testComment);
+      
+      console.log('Test comment added with ID:', docRef.id);
+      await fetchData();
+      alert('Test comment added successfully! Check the comments section.');
+    } catch (error: any) {
+      console.error('Error adding test comment:', error);
+      alert(`Error adding test comment: ${error.message}`);
+    }
+  };
+
+  const addRealComment = async () => {
+    try {
+      // Get the first startup and user for testing
+      const firstStartup = startups[0];
+      const firstUser = users.find(u => u.role === 'investor');
+      
+      if (!firstStartup || !firstUser) {
+        alert('No startups or investors found for testing');
+        return;
+      }
+      
+      const realComment = {
+        investorId: firstUser.uid,
+        investorName: firstUser.email || 'Test Investor',
+        startupId: firstStartup.id,
+        comment: `Real test comment for ${firstStartup.name} from ${firstUser.email}`,
+        timestamp: new Date(),
+        type: 'investment' as const
+      };
+      
+      console.log('Adding real test comment:', realComment);
+      const docRef = await addDoc(collection(db, 'comments'), realComment);
+      
+      console.log('Real test comment added with ID:', docRef.id);
+      await fetchData();
+      alert('Real test comment added successfully! Check the comments section.');
+    } catch (error: any) {
+      console.error('Error adding real test comment:', error);
+      alert(`Error adding real test comment: ${error.message}`);
+    }
+  };
+
+  const checkCommentsInDatabase = async () => {
+    try {
+      console.log('Checking comments in database...');
+      const commentsRef = collection(db, 'comments');
+      const querySnapshot = await getDocs(commentsRef);
+      
+      console.log('Total comments in database:', querySnapshot.docs.length);
+      
+      const commentsData = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('Comment from database:', { id: doc.id, ...data });
+        return {
+          id: doc.id,
+          ...data
+        };
+      });
+      
+      alert(`Found ${commentsData.length} comments in database. Check console for details.`);
+      console.log('All comments from database:', commentsData);
+    } catch (error: any) {
+      console.error('Error checking comments:', error);
+      alert(`Error checking comments: ${error.message}`);
     }
   };
 
@@ -283,6 +396,24 @@ const AdminDashboard: React.FC = () => {
                   >
                     🔐 Test Auth
                   </a>
+                  <a
+                    href="/admin/profile-manager"
+                    className="px-6 py-3 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-full font-medium transition-all duration-300 hover:scale-105"
+                  >
+                    📄 Profile Manager
+                  </a>
+                  <a
+                    href="/admin/comment-test" 
+                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-full font-medium transition-all duration-300 hover:scale-105"
+                  >
+                    💬 Test Comments
+                  </a>
+                  <a
+                    href="/admin/comment-debug" 
+                    className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-full font-medium transition-all duration-300 hover:scale-105"
+                  >
+                    🔍 Comment Debug
+                  </a>
                 </div>
 
         {/* Content based on active tab */}
@@ -384,47 +515,124 @@ const AdminDashboard: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-2xl font-bold text-white mb-8 text-center">
-              Investor Comments
-            </h2>
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-2xl font-bold text-white">
+                Investor Comments ({comments.length})
+              </h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={fetchData}
+                  className="bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                >
+                  <MessageCircle size={16} />
+                  Refresh Data
+                </button>
+                <button
+                  onClick={testCommentSubmission}
+                  className="bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white px-4 py-2 rounded-lg font-medium transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                >
+                  <MessageCircle size={16} />
+                  Test Comment
+                </button>
+                <button
+                  onClick={addRealComment}
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                >
+                  <MessageCircle size={16} />
+                  Add Real Comment
+                </button>
+                <button
+                  onClick={checkCommentsInDatabase}
+                  className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                >
+                  <MessageCircle size={16} />
+                  Check DB Comments
+                </button>
+              </div>
+            </div>
             {(comments || []).length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(comments || []).map((comment, index) => (
+              <div className="space-y-6">
+                {/* Group comments by investor */}
+                {Object.entries(
+                  comments.reduce((acc, comment) => {
+                    const investorKey = comment.investorId || comment.investorName;
+                    if (!acc[investorKey]) {
+                      acc[investorKey] = [];
+                    }
+                    acc[investorKey].push(comment);
+                    return acc;
+                  }, {} as Record<string, typeof comments>)
+                ).map(([investorKey, investorComments]) => (
                   <motion.div
-                    key={comment.id}
+                    key={investorKey}
                     className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10"
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: index * 0.1 }}
+                    transition={{ duration: 0.6 }}
                   >
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 bg-gradient-to-r from-[#e86888] to-[#7d7eed] rounded-full flex items-center justify-center">
-                        <MessageCircle className="text-white" size={20} />
+                    {/* Investor Header */}
+                    <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
+                      <div className="w-12 h-12 bg-gradient-to-r from-[#e86888] to-[#7d7eed] rounded-full flex items-center justify-center">
+                        <UserIcon className="text-white" size={24} />
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-white font-semibold">{comment.investorName}</h3>
-                        <p className="text-white/60 text-sm">{getStartupName(comment.startupId)}</p>
+                        <h3 className="text-white font-semibold text-lg">
+                          {investorComments[0]?.investorName || 'Unknown Investor'}
+                        </h3>
+                        <p className="text-white/60 text-sm">
+                          Investor ID: {investorKey}
+                        </p>
+                        <p className="text-white/60 text-sm">
+                          Total Comments: {investorComments.length}
+                        </p>
                       </div>
                     </div>
                     
-                    <div className="space-y-3">
-                      <div>
-                        <span className="text-white/60 text-sm">Comment:</span>
-                        <p className="text-white/90 text-sm mt-1">{comment.comment}</p>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                          comment.type === 'investment' ? 'bg-green-500/20 text-green-400' :
-                          comment.type === 'hiring' ? 'bg-blue-500/20 text-blue-400' :
-                          'bg-gray-500/20 text-gray-400'
-                        }`}>
-                          {comment.type}
-                        </span>
-                        <span className="text-white/60 text-xs">
-                          {new Date(comment.timestamp).toLocaleDateString()}
-                        </span>
-                      </div>
+                    {/* Comments Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {investorComments.map((comment, index) => (
+                        <motion.div
+                          key={comment.id}
+                          className="bg-white/5 backdrop-blur-md rounded-xl p-4 border border-white/10"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.4, delay: index * 0.1 }}
+                        >
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center">
+                              <MessageCircle className="text-white" size={16} />
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="text-white font-medium text-sm">
+                                {getStartupName(comment.startupId)}
+                              </h4>
+                              <p className="text-white/60 text-xs">
+                                {new Date(comment.timestamp).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div>
+                              <span className="text-white/60 text-xs">Comment:</span>
+                              <p className="text-white/90 text-sm mt-1">{comment.comment}</p>
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                                comment.type === 'investment' ? 'bg-green-500/20 text-green-400' :
+                                comment.type === 'hiring' ? 'bg-blue-500/20 text-blue-400' :
+                                'bg-gray-500/20 text-gray-400'
+                              }`}>
+                                {comment.type}
+                              </span>
+                              <span className="text-white/60 text-xs">
+                                {new Date(comment.timestamp).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
                     </div>
                   </motion.div>
                 ))}
@@ -434,6 +642,22 @@ const AdminDashboard: React.FC = () => {
                 No comments from investors yet.
               </div>
             )}
+            
+            {/* Debug Section */}
+            <div className="mt-8 bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10">
+              <h3 className="text-white font-semibold mb-4">Debug Information</h3>
+              <div className="space-y-2 text-sm">
+                <div>
+                  <span className="text-white/60">Total Comments:</span> {comments.length}
+                </div>
+                <div>
+                  <span className="text-white/60">Comments Data:</span>
+                  <pre className="text-white/80 text-xs mt-2 bg-black/20 p-3 rounded-md overflow-auto max-h-40">
+                    {JSON.stringify(comments, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            </div>
           </motion.div>
         )}
 
