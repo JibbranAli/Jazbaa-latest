@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
-import { 
-  Rocket, 
-  Users, 
-  Globe, 
-  Smartphone, 
-  QrCode, 
-  Mail, 
-  Phone, 
-  PlayCircle, 
-  Download, 
-  Presentation, 
+import {
+  Rocket,
+  Users,
+  Globe,
+  Smartphone,
+  QrCode,
+  Mail,
+  Phone,
+  PlayCircle,
+  Download,
+  Presentation,
   Lightbulb,
   ExternalLink,
   Linkedin,
@@ -25,6 +25,7 @@ import {
   Eye,
   AlertCircle
 } from 'lucide-react';
+import ContactFormModal from '../ContactFormModal';
 
 interface StartupData {
   name: string;
@@ -73,7 +74,7 @@ interface IndividualPitch {
 // Utility function to convert YouTube URLs to embed format
 const convertToEmbedUrl = (url: string): string => {
   if (!url) return '';
-  
+
   // Handle YouTube URLs
   if (url.includes('youtube.com/watch')) {
     const videoId = url.match(/[?&]v=([^&]+)/)?.[1];
@@ -81,7 +82,7 @@ const convertToEmbedUrl = (url: string): string => {
       return `https://www.youtube.com/embed/${videoId}`;
     }
   }
-  
+
   // Handle YouTube short URLs
   if (url.includes('youtu.be/')) {
     const videoId = url.split('youtu.be/')[1]?.split('?')[0];
@@ -89,12 +90,12 @@ const convertToEmbedUrl = (url: string): string => {
       return `https://www.youtube.com/embed/${videoId}`;
     }
   }
-  
+
   // Handle YouTube embed URLs (already in correct format)
   if (url.includes('youtube.com/embed/')) {
     return url;
   }
-  
+
   // For other video platforms, return as is
   return url;
 };
@@ -104,6 +105,20 @@ const StartupProfileTemplate: React.FC = () => {
   const [startup, setStartup] = useState<StartupData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Contact form modal state
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [contactType, setContactType] = useState<'founders' | 'call' | 'deck' | 'csr'>('founders');
+
+  const openContactModal = (type: 'founders' | 'call' | 'deck' | 'csr') => {
+    setContactType(type);
+    setIsContactModalOpen(true);
+  };
+
+  const closeContactModal = () => {
+    setIsContactModalOpen(false);
+  };
+
   const [ref, inView] = useInView({
     triggerOnce: true,
     threshold: 0.1,
@@ -119,7 +134,7 @@ const StartupProfileTemplate: React.FC = () => {
 
       try {
         console.log('🔍 Fetching startup profile for slug:', slug);
-        
+
         // Try to fetch from main startups collection first
         const startupRef = doc(db, 'startups', slug);
         const startupDoc = await getDoc(startupRef);
@@ -135,7 +150,7 @@ const StartupProfileTemplate: React.FC = () => {
           try {
             const backupRef = doc(db, 'permanent_profiles', slug);
             const backupDoc = await getDoc(backupRef);
-            
+
             if (backupDoc.exists()) {
               startupData = backupDoc.data() as StartupData;
               console.log('✅ Startup data fetched from backup collection:', startupData);
@@ -152,7 +167,7 @@ const StartupProfileTemplate: React.FC = () => {
             return;
           }
         }
-        
+
         // Ensure all required fields have fallbacks
         const processedData = {
           ...startupData,
@@ -179,7 +194,7 @@ const StartupProfileTemplate: React.FC = () => {
           website: startupData.website || undefined,
           logo: startupData.logo || undefined // Ensure logo is included
         };
-        
+
         setStartup(processedData);
         console.log('✅ Startup profile processed and set:', processedData);
       } catch (error) {
@@ -227,7 +242,7 @@ const StartupProfileTemplate: React.FC = () => {
       {/* Hero Banner */}
       <section className="relative bg-black py-20 px-6 lg:px-16 overflow-hidden">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 items-center gap-12">
-        
+
         {/* Left Content Card */}
         <div className="bg-gradient-to-b from-neutral-900 to-black rounded-3xl shadow-2xl p-10 relative z-20">
           <h1 className="text-5xl md:text-6xl font-extrabold mb-6 leading-tight">
@@ -258,7 +273,15 @@ const StartupProfileTemplate: React.FC = () => {
                 Explore Website / App
               </a>
             )}
-            <button className="px-6 py-3 rounded-lg font-semibold flex items-center gap-2 text-white bg-white/10 border border-white/20 hover:bg-white/20 hover:scale-105 transform transition-all duration-300">
+            <button 
+              onClick={() => {
+                const teamSection = document.getElementById('brains-behind-build');
+                if (teamSection) {
+                  teamSection.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
+              className="px-6 py-3 rounded-lg font-semibold flex items-center gap-2 text-white bg-white/10 border border-white/20 hover:bg-white/20 hover:scale-105 transform transition-all duration-300"
+            >
               <Users className="w-5 h-5" />
               Meet the Team
             </button>
@@ -266,13 +289,13 @@ const StartupProfileTemplate: React.FC = () => {
         </div>
 
         {/* Right Logo */}
-        <div className="flex justify-center md:justify-end relative">
+        <div className="flex justify-center md:justify-center  items-center relative ">
           <div className="bg-white rounded-full shadow-2xl w-72 h-72 flex items-center justify-center absolute md:right-[-50px] z-10">
             {startup.logo ? (
               <img
                 src={startup.logo}
                 alt={`${startup.name} logo`}
-                className="w-44 h-44 object-contain"
+                className="w-48 h-48 object-contain"
               />
             ) : (
               <div className="text-gray-500">No Logo</div>
@@ -293,7 +316,7 @@ const StartupProfileTemplate: React.FC = () => {
                 Born from a real problem. Built with purpose.
               </p>
               <div className="text-lg text-gray-700 space-y-6 leading-relaxed">
-                <p>{startup.story}</p>
+                <p >{startup.story}</p>
                 {startup.problem && (
                   <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded">
                     <h3 className="font-semibold text-red-800 mb-2">The Problem</h3>
@@ -376,7 +399,7 @@ const StartupProfileTemplate: React.FC = () => {
                   {startup.pitchDeck.includes('.pdf') ? 'PDF Document' : 'PowerPoint Presentation'}
                 </p>
               </div>
-              
+
               {/* Embedded Viewer */}
               <div className="bg-gray-100 rounded-xl overflow-hidden shadow-lg">
                 <div className="bg-gray-200 px-4 py-2 flex items-center justify-between">
@@ -406,7 +429,7 @@ const StartupProfileTemplate: React.FC = () => {
                     </a>
                   </div>
                 </div>
-                
+
                 {/* PDF Viewer */}
                 {startup.pitchDeck.includes('.pdf') && (
                   <div className="h-96 w-full">
@@ -418,7 +441,7 @@ const StartupProfileTemplate: React.FC = () => {
                     />
                   </div>
                 )}
-                
+
                 {/* PowerPoint Viewer (using Google Docs Viewer) */}
                 {!startup.pitchDeck.includes('.pdf') && (startup.pitchDeck.includes('.ppt') || startup.pitchDeck.includes('.pptx')) && (
                   <div className="h-96 w-full">
@@ -430,7 +453,7 @@ const StartupProfileTemplate: React.FC = () => {
                     />
                   </div>
                 )}
-                
+
                 {/* Fallback for unsupported formats */}
                 {!startup.pitchDeck.includes('.pdf') && !startup.pitchDeck.includes('.ppt') && !startup.pitchDeck.includes('.pptx') && (
                   <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -443,15 +466,15 @@ const StartupProfileTemplate: React.FC = () => {
                   </div>
                 )}
               </div>
-              
-              
+
+
             </div>
           </div>
         </section>
       )}
 
       {/* Meet the Team */}
-      <section className="py-20 px-4 bg-gray-50">
+      <section id="brains-behind-build" className="py-20 px-4 bg-gray-50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent mb-4">
@@ -549,7 +572,7 @@ const StartupProfileTemplate: React.FC = () => {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Team Information */}
                 <div className="text-center">
                   <h3 className="text-2xl font-semibold mb-3">Meet Our Team</h3>
@@ -652,35 +675,44 @@ const StartupProfileTemplate: React.FC = () => {
             {startup.collaborationMessage}
           </p>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {startup.contactEmail && (
-              <a
-                href={`mailto:${startup.contactEmail}`}
-                className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl font-semibold hover:-translate-y-1 transition-all shadow-lg"
-              >
-                <Mail className="w-5 h-5" />
-                Contact Founders
-              </a>
-            )}
-            {startup.contactPhone && (
-              <a
-                href={`tel:${startup.contactPhone}`}
-                className="flex items-center gap-3 px-6 py-4 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-semibold hover:border-gray-300 hover:-translate-y-1 transition-all shadow-sm"
-              >
-                <Phone className="w-5 h-5" />
-                Call Us
-              </a>
-            )}
-            <button className="flex items-center gap-3 px-6 py-4 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 hover:-translate-y-1 transition-all">
+            <button
+              onClick={() => openContactModal('founders')}
+              className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl font-semibold hover:-translate-y-1 transition-all shadow-lg"
+            >
+              <Mail className="w-5 h-5" />
+              Contact Founders
+            </button>
+            <button
+              onClick={() => openContactModal('call')}
+              className="flex items-center gap-3 px-6 py-4 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-semibold hover:border-gray-300 hover:-translate-y-1 transition-all shadow-sm"
+            >
+              <Phone className="w-5 h-5" />
+              Call Us
+            </button>
+            <button
+              onClick={() => openContactModal('deck')}
+              className="flex items-center gap-3 px-6 py-4 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 hover:-translate-y-1 transition-all"
+            >
               <Download className="w-5 h-5" />
               Request Detailed Deck
             </button>
-            <button className="flex items-center gap-3 px-6 py-4 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 hover:-translate-y-1 transition-all">
+            <button
+              onClick={() => openContactModal('csr')}
+              className="flex items-center gap-3 px-6 py-4 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 hover:-translate-y-1 transition-all"
+            >
               <Rocket className="w-5 h-5" />
               Support via CSR
             </button>
           </div>
         </div>
       </section>
+
+      {/* Contact Form Modal */}
+      <ContactFormModal
+        isOpen={isContactModalOpen}
+        onClose={closeContactModal}
+        contactType={contactType}
+      />
 
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-16 px-4">
