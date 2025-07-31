@@ -28,12 +28,46 @@ const InvestorDashboard: React.FC = () => {
       ]);
       
       const startupsData = startupsCollection.docs.map(doc => {
-        const data = {
+        const data = doc.data();
+        console.log('Raw startup data:', data);
+        
+        // Transform registered startup data to match expected format
+        const transformedData = {
           id: doc.id,
-          ...doc.data()
+          name: data.name || 'Unknown Startup',
+          pitch: data.tagline || data.story || 'No description available',
+          sector: data.sector || 'Technology',
+          badges: data.badges || [],
+          special: data.special || null,
+          interestedInvestors: data.interestedInvestors || [],
+          hiringInvestors: data.hiringInvestors || [],
+          collegeId: data.collegeId || data.createdBy || 'unknown', // Use createdBy as fallback
+          createdBy: data.createdBy || 'unknown',
+          createdAt: data.createdAt || new Date(),
+          // Include additional fields for registered startups
+          tagline: data.tagline,
+          story: data.story,
+          team: data.team || [],
+          website: data.website,
+          appStore: data.appStore,
+          playStore: data.playStore,
+          demoUrl: data.demoUrl,
+          contactEmail: data.contactEmail,
+          contactPhone: data.contactPhone,
+          slug: data.slug || doc.id,
+          status: data.status || 'active',
+          // New detailed profile fields
+          problem: data.problem,
+          solution: data.solution,
+          productVideo: data.productVideo,
+          pitchDeck: data.pitchDeck,
+          qrCode: data.qrCode,
+          collaborationMessage: data.collaborationMessage,
+          individualPitches: data.individualPitches || []
         };
-        console.log('Startup data:', data);
-        return data;
+        
+        console.log('Transformed startup data:', transformedData);
+        return transformedData;
       }) as Startup[];
       
       const commentsData = commentsCollection.docs.map(doc => {
@@ -47,7 +81,7 @@ const InvestorDashboard: React.FC = () => {
       
       console.log('Total startups found:', startupsData.length);
       console.log('Total comments found:', commentsData.length);
-      console.log('Startups with IDs:', startupsData.map(s => ({ id: s.id, name: s.name })));
+      console.log('Startups with IDs:', startupsData.map(s => ({ id: s.id, name: s.name, sector: s.sector })));
       
       setStartups(startupsData);
       setComments(commentsData);

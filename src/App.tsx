@@ -18,6 +18,12 @@ import VisionSection from './components/VisionSection';
 import GallerySection from './components/GallerySection';
 import JoinSection from './components/JoinSection';
 import Footer from './components/Footer';
+import InviteStartup from './components/admin/InviteStartup';
+import EmailTest from './components/admin/EmailTest';
+import StartupRegistration from './components/startup/StartupRegistration';
+import StartupProfile from './components/startup/StartupProfile';
+import AuthTest from './components/AuthTest';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ 
@@ -104,6 +110,12 @@ const AppContent: React.FC = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           
+          {/* Startup Registration Route */}
+          <Route path="/register/:token" element={<StartupRegistration />} />
+          
+          {/* Startup Profile Route */}
+          <Route path="/startup/:slug" element={<StartupProfile />} />
+          
           {/* Protected Dashboard Routes */}
           <Route 
             path="/investor-dashboard" 
@@ -130,6 +142,32 @@ const AppContent: React.FC = () => {
             } 
           />
           
+          {/* Admin Routes */}
+          <Route 
+            path="/admin/invite" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <InviteStartup />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/email-test" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <EmailTest />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/auth-test" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AuthTest />
+              </ProtectedRoute>
+            } 
+          />
+          
           {/* Home Route with Auto-redirect */}
           <Route path="/" element={<HomeRoute />} />
         </Routes>
@@ -138,12 +176,14 @@ const AppContent: React.FC = () => {
   );
 };
 
-// Root App Component with Auth Provider
+// Root App Component with Auth Provider and Error Boundary
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 };
 

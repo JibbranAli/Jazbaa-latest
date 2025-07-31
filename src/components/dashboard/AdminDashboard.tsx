@@ -39,10 +39,23 @@ const AdminDashboard: React.FC = () => {
         getDocs(collection(db, 'comments'))
       ]);
       
-      const startupsData = startupsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Startup[];
+      const startupsData = startupsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('Startup data:', doc.id, data);
+        return {
+          id: doc.id,
+          name: data.name || 'Unknown Startup',
+          pitch: data.pitch || '',
+          sector: data.sector || 'Technology',
+          badges: data.badges || [],
+          special: data.special || null,
+          collegeId: data.collegeId || '',
+          createdBy: data.createdBy || '',
+          createdAt: data.createdAt || new Date(),
+          interestedInvestors: data.interestedInvestors || [],
+          hiringInvestors: data.hiringInvestors || []
+        };
+      }) as Startup[];
       
       const usersData = usersSnapshot.docs.map(doc => ({
         uid: doc.id, // Fixed: use doc.id for uid
@@ -58,6 +71,7 @@ const AdminDashboard: React.FC = () => {
       console.log('Found users:', usersData.length);
       console.log('Found comments:', commentsData.length);
       console.log('Comments data:', commentsData);
+      console.log('Startups with investors:', startupsData.filter(s => s.interestedInvestors?.length > 0 || s.hiringInvestors?.length > 0));
       
       setStartups(startupsData);
       setUsers(usersData);
@@ -80,22 +94,29 @@ const AdminDashboard: React.FC = () => {
     return startup?.name || startupId;
   };
 
-  const allInterests = startups.flatMap(startup => [
-    ...startup.interestedInvestors.map(investorId => ({
-      type: 'investment' as const,
-      investorId,
-      startupId: startup.id,
-      startupName: startup.name,
-      sector: startup.sector
-    })),
-    ...startup.hiringInvestors.map(investorId => ({
-      type: 'hiring' as const,
-      investorId,
-      startupId: startup.id,
-      startupName: startup.name,
-      sector: startup.sector
-    }))
-  ]);
+  const allInterests = startups.flatMap(startup => {
+    if (!startup) return [];
+    
+    const interestedInvestors = startup.interestedInvestors || [];
+    const hiringInvestors = startup.hiringInvestors || [];
+    
+    return [
+      ...interestedInvestors.map(investorId => ({
+        type: 'investment' as const,
+        investorId,
+        startupId: startup.id,
+        startupName: startup.name,
+        sector: startup.sector
+      })),
+      ...hiringInvestors.map(investorId => ({
+        type: 'hiring' as const,
+        investorId,
+        startupId: startup.id,
+        startupName: startup.name,
+        sector: startup.sector
+      }))
+    ];
+  });
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -242,6 +263,28 @@ const AdminDashboard: React.FC = () => {
                   </button>
                 </div>
 
+                {/* Admin Navigation Links */}
+                <div className="flex flex-wrap justify-center gap-4 mb-8">
+                  <a
+                    href="/admin/invite"
+                    className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-full font-medium transition-all duration-300 hover:scale-105"
+                  >
+                    🚀 Invite Startups
+                  </a>
+                  <a
+                    href="/admin/email-test"
+                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full font-medium transition-all duration-300 hover:scale-105"
+                  >
+                    📧 Test Emails
+                  </a>
+                  <a
+                    href="/admin/auth-test"
+                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-full font-medium transition-all duration-300 hover:scale-105"
+                  >
+                    🔐 Test Auth
+                  </a>
+                </div>
+
         {/* Content based on active tab */}
         {activeTab === 'interests' && (
           <motion.div
@@ -344,9 +387,9 @@ const AdminDashboard: React.FC = () => {
             <h2 className="text-2xl font-bold text-white mb-8 text-center">
               Investor Comments
             </h2>
-            {comments.length > 0 ? (
+            {(comments || []).length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {comments.map((comment, index) => (
+                {(comments || []).map((comment, index) => (
                   <motion.div
                     key={comment.id}
                     className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10"
@@ -412,7 +455,7 @@ const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {users.map((user, index) => (
+              {(users || []).map((user, index) => (
                 <motion.div
                   key={user.uid}
                   className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10"

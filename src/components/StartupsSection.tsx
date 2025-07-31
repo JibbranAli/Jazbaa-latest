@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import { Zap, ExternalLink, TrendingUp, MessageCircle, Send } from 'lucide-react';
 import { Startup, Comment } from '../types/auth';
+import { useNavigate } from 'react-router-dom';
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 interface StartupsSectionProps {
   isInvestorView?: boolean;
@@ -28,188 +31,124 @@ const StartupsSection: React.FC<StartupsSectionProps> = ({
   const [showCommentForm, setShowCommentForm] = useState<string | null>(null);
   const [commentTexts, setCommentTexts] = useState<{ [key: string]: string }>({});
   const [commentTypes, setCommentTypes] = useState<{ [key: string]: 'investment' | 'hiring' | 'general' }>({});
+  const [firebaseStartups, setFirebaseStartups] = useState<Startup[]>([]);
+  const [loading, setLoading] = useState(true);
   const [ref, inView] = useInView({
     triggerOnce: true,
     threshold: 0.1,
   });
+  const navigate = useNavigate();
 
-  // Get sectors from actual startup data or use defaults
-  const firebaseSectors = Array.from(new Set(startups.map(s => s.sector)));
-  const defaultSectors = ['HealthTech', 'AgriTech', 'FinTech', 'EdTech', 'Sustainability', 'WomenTech', 'TravelTech', 'Social Impact', 'AI for Bharat'];
-  
-  // Use Firebase sectors if available, otherwise use default sectors
-  const sectors = ['all', ...(firebaseSectors.length > 0 ? firebaseSectors : defaultSectors)];
+  // Fetch startups from Firebase
+  useEffect(() => {
+    const fetchStartups = async () => {
+      try {
+        setLoading(true);
+        const startupsRef = collection(db, 'startups');
+        // Remove status filter since existing startups don't have status field
+        const q = query(startupsRef, orderBy('createdAt', 'desc'));
+        const querySnapshot = await getDocs(q);
+        
+        const fetchedStartups = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          console.log('Raw startup data from Firebase:', { id: doc.id, ...data });
+          
+          return {
+            id: doc.id,
+            name: data.name || 'Unknown Startup',
+            pitch: data.tagline || data.story || 'No description available',
+            sector: data.sector || 'Technology',
+            badges: data.badges || [],
+            special: data.special || null,
+            interestedInvestors: data.interestedInvestors || [],
+            hiringInvestors: data.hiringInvestors || [],
+            collegeId: data.collegeId || data.createdBy || 'unknown',
+            createdBy: data.createdBy || 'unknown',
+            createdAt: data.createdAt || new Date(),
+            slug: data.slug || doc.id,
+            status: data.status || 'active',
+            // Include additional fields for registered startups
+            tagline: data.tagline,
+            story: data.story,
+            team: data.team || [],
+            website: data.website,
+            appStore: data.appStore,
+            playStore: data.playStore,
+            demoUrl: data.demoUrl,
+            contactEmail: data.contactEmail,
+            contactPhone: data.contactPhone,
+            // New detailed profile fields
+            problem: data.problem,
+            solution: data.solution,
+            productVideo: data.productVideo,
+            pitchDeck: data.pitchDeck,
+            qrCode: data.qrCode,
+            collaborationMessage: data.collaborationMessage,
+            individualPitches: data.individualPitches || []
+          } as Startup;
+        });
+        
+        setFirebaseStartups(fetchedStartups);
+        console.log('Fetched startups from Firebase:', fetchedStartups);
+        console.log('Total startups fetched:', fetchedStartups.length);
+      } catch (error) {
+        console.error('Error fetching startups:', error);
+        // Set empty array on error to prevent infinite loading
+        setFirebaseStartups([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStartups();
+  }, []);
+
+  // Combine passed startups with Firebase startups
+  const allStartups = [...startups, ...firebaseStartups];
+
+  // Get sectors from actual startup data
+  const sectors = ['all', ...Array.from(new Set(allStartups.map(s => s.sector)))];
   
   // Filter startups based on active tab
   const filteredStartups = activeTab === 'all' 
-    ? startups 
-    : startups.filter(startup => startup.sector === activeTab);
-
-  // Default startups for main page (when no Firebase data)
-  const defaultStartups = {
-    HealthTech: [
-      {
-        name: 'MediCare AI',
-        pitch: 'AI-powered diagnosis for rural healthcare',
-        sector: 'HealthTech',
-        badges: ['Open to Invest'],
-        special: null
-      },
-      {
-        name: 'HealthBridge',
-        pitch: 'Connecting patients with specialists virtually',
-        sector: 'HealthTech',
-        badges: ['Open to Hire'],
-        special: 'Built by All-Women Team'
-      },
-      {
-        name: 'PillTracker',
-        pitch: 'Smart medication management system',
-        sector: 'HealthTech',
-        badges: ['Open to Invest', 'Open to Hire'],
-        special: 'Flagship Startup'
-      }
-    ],
-    AgriTech: [
-      {
-        name: 'FarmSmart',
-        pitch: 'IoT sensors for precision farming',
-        sector: 'AgriTech',
-        badges: ['Open to Invest'],
-        special: null
-      },
-      {
-        name: 'CropGuard',
-        pitch: 'AI-based crop disease detection',
-        sector: 'AgriTech',
-        badges: ['Open to Hire'],
-        special: 'Built by All-Women Team'
-      }
-    ],
-    FinTech: [
-      {
-        name: 'PayEasy',
-        pitch: 'Digital payments for rural merchants',
-        sector: 'FinTech',
-        badges: ['Open to Invest'],
-        special: 'Flagship Startup'
-      },
-      {
-        name: 'MicroLend',
-        pitch: 'Peer-to-peer lending platform',
-        sector: 'FinTech',
-        badges: ['Open to Hire'],
-        special: null
-      }
-    ],
-    EdTech: [
-      {
-        name: 'LearnSmart',
-        pitch: 'AI-powered personalized learning platform',
-        sector: 'EdTech',
-        badges: ['Open to Invest'],
-        special: null
-      },
-      {
-        name: 'SkillBridge',
-        pitch: 'Virtual reality skill training',
-        sector: 'EdTech',
-        badges: ['Open to Hire'],
-        special: 'Built by All-Women Team'
-      }
-    ],
-    Sustainability: [
-      {
-        name: 'EcoTrack',
-        pitch: 'Carbon footprint tracking for businesses',
-        sector: 'Sustainability',
-        badges: ['Open to Invest'],
-        special: 'Flagship Startup'
-      },
-      {
-        name: 'GreenTech',
-        pitch: 'Renewable energy optimization',
-        sector: 'Sustainability',
-        badges: ['Open to Hire'],
-        special: null
-      }
-    ],
-    WomenTech: [
-      {
-        name: 'SheLeads',
-        pitch: 'Leadership platform for women entrepreneurs',
-        sector: 'WomenTech',
-        badges: ['Open to Invest'],
-        special: 'Built by All-Women Team'
-      },
-      {
-        name: 'TechMentor',
-        pitch: 'Women in tech mentorship network',
-        sector: 'WomenTech',
-        badges: ['Open to Hire'],
-        special: null
-      }
-    ],
-    TravelTech: [
-      {
-        name: 'LocalGuide',
-        pitch: 'AI-powered local travel recommendations',
-        sector: 'TravelTech',
-        badges: ['Open to Invest'],
-        special: null
-      },
-      {
-        name: 'SmartStay',
-        pitch: 'Smart hotel booking platform',
-        sector: 'TravelTech',
-        badges: ['Open to Hire'],
-        special: 'Flagship Startup'
-      }
-    ],
-    'Social Impact': [
-      {
-        name: 'CommunityConnect',
-        pitch: 'Platform for social impact initiatives',
-        sector: 'Social Impact',
-        badges: ['Open to Invest'],
-        special: null
-      },
-      {
-        name: 'HelpBridge',
-        pitch: 'Connecting volunteers with NGOs',
-        sector: 'Social Impact',
-        badges: ['Open to Hire'],
-        special: 'Built by All-Women Team'
-      }
-    ],
-    'AI for Bharat': [
-      {
-        name: 'BharatAI',
-        pitch: 'AI solutions for Indian languages',
-        sector: 'AI for Bharat',
-        badges: ['Open to Invest'],
-        special: 'Flagship Startup'
-      },
-      {
-        name: 'LocalAI',
-        pitch: 'AI-powered local business solutions',
-        sector: 'AI for Bharat',
-        badges: ['Open to Hire'],
-        special: null
-      }
-    ]
-  };
-
-  // Use Firebase data if available, otherwise use default data
-  const displayStartups = startups.length > 0 ? filteredStartups : (defaultStartups[activeTab as keyof typeof defaultStartups] || defaultStartups.HealthTech);
+    ? allStartups 
+    : allStartups.filter(startup => startup.sector === activeTab);
 
   // Ensure all startups have IDs and are treated as real
-  const startupsWithIds = displayStartups.map((startup: any, index: number) => ({
+  const startupsWithIds = filteredStartups.map((startup: any, index: number) => ({
     ...startup,
-    id: startup.id || `startup-${activeTab}-${index}`,
+    id: startup.id || startup.slug || `startup-${activeTab}-${index}`,
     interestedInvestors: startup.interestedInvestors || [],
-    hiringInvestors: startup.hiringInvestors || []
+    hiringInvestors: startup.hiringInvestors || [],
+    // Ensure required fields for registered startups
+    name: startup.name || 'Unknown Startup',
+    pitch: startup.pitch || startup.tagline || startup.story || 'No description available',
+    sector: startup.sector || 'Technology',
+    badges: startup.badges || []
   }));
+
+  console.log('StartupsSection - Display startups:', {
+    totalStartups: allStartups.length,
+    filteredStartups: filteredStartups.length,
+    startupsWithIds: startupsWithIds.length,
+    activeTab,
+    isInvestorView,
+    loading
+  });
+
+  if (loading) {
+    return (
+      <section id="startups" className="py-20 bg-black relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#e86888]/10 to-[#7d7eed]/10"></div>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#e86888] mx-auto mb-4"></div>
+            <p className="text-white/70">Loading startups...</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section id="startups" className="py-20 bg-black relative overflow-hidden">
@@ -228,7 +167,7 @@ const StartupsSection: React.FC<StartupsSectionProps> = ({
           <p className="text-xl text-white/80 max-w-3xl mx-auto">
             {isInvestorView 
               ? 'Discover and invest in innovative solutions across various sectors.'
-              : 'Discover innovative solutions across 9 key sectors, built by passionate students who dared to dream big and execute bigger.'
+              : 'Discover innovative solutions across various sectors, built by passionate students who dared to dream big and execute bigger.'
             }
           </p>
         </motion.div>
@@ -432,7 +371,14 @@ const StartupsSection: React.FC<StartupsSectionProps> = ({
                       )}
                     </div>
                   ) : (
-                    <button className="w-full bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white py-3 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2 hover:scale-105 hover:shadow-lg hover:shadow-[#e86888]/25 active:scale-95 transform">
+                    <button 
+                      onClick={() => {
+                        // Navigate to startup profile page using slug
+                        const slug = startup.slug || startup.id || startup.name.toLowerCase().replace(/\s+/g, '-');
+                        navigate(`/startup/${slug}`);
+                      }}
+                      className="w-full bg-gradient-to-r from-[#e86888] to-[#7d7eed] text-white py-3 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2 hover:scale-105 hover:shadow-lg hover:shadow-[#e86888]/25 active:scale-95 transform"
+                    >
                       View Details <ExternalLink size={16} />
                     </button>
                   )}
@@ -442,7 +388,7 @@ const StartupsSection: React.FC<StartupsSectionProps> = ({
           </motion.div>
         </AnimatePresence>
 
-        {displayStartups.length === 0 && (
+        {startupsWithIds.length === 0 && (
           <div className="text-center text-white/60 text-xl">
             No startups found for the selected sector.
           </div>
