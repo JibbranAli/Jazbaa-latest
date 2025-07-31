@@ -5,9 +5,23 @@ import { db } from '../../config/firebase';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import { 
-  Rocket, PlayCircle, ExternalLink, Users, Lightbulb, Presentation, Download, 
-  Linkedin, Github, User, UserCircle, Globe, Smartphone, QrCode, Apple, 
-  Cuboid as Android, Mail, Calendar, FileText, HeartHandshake, Code, Zap
+  Rocket, 
+  Users, 
+  Globe, 
+  Smartphone, 
+  QrCode, 
+  Mail, 
+  Phone, 
+  PlayCircle, 
+  Download, 
+  Presentation, 
+  Lightbulb,
+  ExternalLink,
+  Linkedin,
+  Github,
+  Briefcase,
+  Video,
+  Code
 } from 'lucide-react';
 
 interface StartupData {
@@ -53,6 +67,35 @@ interface IndividualPitch {
   videoUrl: string;
   hiring: boolean;
 }
+
+// Utility function to convert YouTube URLs to embed format
+const convertToEmbedUrl = (url: string): string => {
+  if (!url) return '';
+  
+  // Handle YouTube URLs
+  if (url.includes('youtube.com/watch')) {
+    const videoId = url.match(/[?&]v=([^&]+)/)?.[1];
+    if (videoId) {
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+  }
+  
+  // Handle YouTube short URLs
+  if (url.includes('youtu.be/')) {
+    const videoId = url.split('youtu.be/')[1]?.split('?')[0];
+    if (videoId) {
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+  }
+  
+  // Handle YouTube embed URLs (already in correct format)
+  if (url.includes('youtube.com/embed/')) {
+    return url;
+  }
+  
+  // For other video platforms, return as is
+  return url;
+};
 
 const StartupProfileTemplate: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -125,13 +168,13 @@ const StartupProfileTemplate: React.FC = () => {
           individualPitches: startupData.individualPitches || [],
           contactEmail: startupData.contactEmail || 'contact@startup.com',
           contactPhone: startupData.contactPhone || 'Not provided',
-          demoUrl: startupData.demoUrl || null,
-          appStore: startupData.appStore || null,
-          playStore: startupData.playStore || null,
-          qrCode: startupData.qrCode || null,
-          productVideo: startupData.productVideo || null,
-          pitchDeck: startupData.pitchDeck || null,
-          website: startupData.website || null,
+          demoUrl: startupData.demoUrl || undefined,
+          appStore: startupData.appStore || undefined,
+          playStore: startupData.playStore || undefined,
+          qrCode: startupData.qrCode || undefined,
+          productVideo: startupData.productVideo || undefined,
+          pitchDeck: startupData.pitchDeck || undefined,
+          website: startupData.website || undefined,
           logo: startupData.logo || undefined // Ensure logo is included
         };
         
@@ -263,19 +306,38 @@ const StartupProfileTemplate: React.FC = () => {
                 )}
               </div>
             </div>
-            <div className="bg-gradient-to-br from-pink-400 to-purple-500 rounded-2xl h-96 flex items-center justify-center text-white shadow-2xl">
-              <div className="text-center">
-                <Lightbulb className="w-16 h-16 mx-auto mb-4" />
-                <div className="text-xl font-semibold">Innovation Story</div>
-                <div className="text-sm opacity-80 mt-2">{startup.sector} Sector</div>
+            {startup.productVideo ? (
+              <div className="bg-gradient-to-br from-pink-400 to-purple-500 rounded-2xl h-96 flex items-center justify-center text-white shadow-2xl overflow-hidden">
+                <div className="w-full h-full flex flex-col items-center justify-center p-2">
+                  {/* <div className="text-xl font-semibold mb-2">Product Video</div> */}
+                  {/* <div className="text-sm opacity-80 mb-4">{startup.sector} Sector</div> */}
+                  <div className="w-full max-w-md">
+                    <iframe
+                      src={convertToEmbedUrl(startup.productVideo)}
+                      title={`${startup.name} Product Video`}
+                      className="w-full h-56 rounded-lg shadow-lg"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    ></iframe>
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-gradient-to-br from-pink-400 to-purple-500 rounded-2xl h-96 flex items-center justify-center text-white shadow-2xl">
+                <div className="text-center">
+                  <Lightbulb className="w-16 h-16 mx-auto mb-4" />
+                  <div className="text-xl font-semibold">Innovation Story</div>
+                  <div className="text-sm opacity-80 mt-2">{startup.sector} Sector</div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
 
       {/* The Solution */}
-      {startup.productVideo && (
+      {/* {startup.productVideo && (
         <section className="py-20 px-4 bg-gray-50">
           <div className="max-w-6xl mx-auto text-center">
             <h2 className="text-4xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent mb-4">
@@ -293,7 +355,7 @@ const StartupProfileTemplate: React.FC = () => {
             </div>
           </div>
         </section>
-      )}
+      )} */}
 
       {/* Pitch Deck */}
       {startup.pitchDeck && (
@@ -341,7 +403,7 @@ const StartupProfileTemplate: React.FC = () => {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {startup.team.map((member, index) => (
               <div key={index} className="bg-white rounded-2xl p-8 text-center shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
-                <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-teal-400 rounded-full mx-auto mb-6 flex items-center justify-center text-white text-2xl font-bold">
+                <div className="w-32 h-32 bg-gradient-to-br from-purple-500 to-teal-400 rounded-full mx-auto mb-6 flex items-center justify-center text-white text-2xl font-bold">
                   {member.name.split(' ').map((word: string) => word[0]).join('')}
                 </div>
                 <h3 className="text-xl font-semibold mb-2">{member.name}</h3>
@@ -374,7 +436,7 @@ const StartupProfileTemplate: React.FC = () => {
                       rel="noopener noreferrer"
                       className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gradient-to-r hover:from-pink-500 hover:to-purple-600 hover:text-white transition-all"
                     >
-                      <User className="w-5 h-5" />
+                      <Briefcase className="w-5 h-5" />
                     </a>
                   )}
                 </div>
@@ -406,7 +468,7 @@ const StartupProfileTemplate: React.FC = () => {
                 <div key={index} className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300">
                   <div className="bg-gradient-to-br from-pink-400 to-purple-500 rounded-xl h-64 flex items-center justify-center text-white mb-6">
                     <div className="text-center">
-                      <UserCircle className="w-16 h-16 mx-auto mb-4" />
+                      <Video className="w-16 h-16 mx-auto mb-4" />
                       <div className="text-xl font-semibold">{member.name}'s Pitch</div>
                       <div className="text-sm opacity-80 mt-2">2-minute video</div>
                     </div>
@@ -461,7 +523,7 @@ const StartupProfileTemplate: React.FC = () => {
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-all"
                     >
-                      <Apple className="w-4 h-4" />
+                      <QrCode className="w-4 h-4" />
                       iOS
                     </a>
                   )}
@@ -472,7 +534,7 @@ const StartupProfileTemplate: React.FC = () => {
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-all"
                     >
-                      <Android className="w-4 h-4" />
+                      <QrCode className="w-4 h-4" />
                       Android
                     </a>
                   )}
@@ -511,16 +573,21 @@ const StartupProfileTemplate: React.FC = () => {
                 Contact Founders
               </a>
             )}
-            <button className="flex items-center gap-3 px-6 py-4 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-semibold hover:border-gray-300 hover:-translate-y-1 transition-all shadow-sm">
-              <Calendar className="w-5 h-5" />
-              Book a 1:1 Call
-            </button>
+            {startup.contactPhone && (
+              <a
+                href={`tel:${startup.contactPhone}`}
+                className="flex items-center gap-3 px-6 py-4 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-semibold hover:border-gray-300 hover:-translate-y-1 transition-all shadow-sm"
+              >
+                <Phone className="w-5 h-5" />
+                Call Us
+              </a>
+            )}
             <button className="flex items-center gap-3 px-6 py-4 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 hover:-translate-y-1 transition-all">
-              <FileText className="w-5 h-5" />
+              <Download className="w-5 h-5" />
               Request Detailed Deck
             </button>
             <button className="flex items-center gap-3 px-6 py-4 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 hover:-translate-y-1 transition-all">
-              <HeartHandshake className="w-5 h-5" />
+              <Rocket className="w-5 h-5" />
               Support via CSR
             </button>
           </div>
@@ -535,7 +602,7 @@ const StartupProfileTemplate: React.FC = () => {
               <Rocket className="w-8 h-8" />
             </div>
             <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-teal-400 rounded-xl flex items-center justify-center">
-              <Zap className="w-8 h-8" />
+              <QrCode className="w-8 h-8" />
             </div>
             <div className="w-16 h-16 bg-gradient-to-r from-pink-400 to-purple-500 rounded-xl flex items-center justify-center">
               <Code className="w-8 h-8" />
