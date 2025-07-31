@@ -146,17 +146,16 @@ const StartupsSection: React.FC<StartupsSectionProps> = ({
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
                         {startup.logo ? (
                           <img
                             src={startup.logo}
                             alt={`${startup.name} logo`}
-                            className="w-8 h-8 object-contain"
+                            className="w-16 h-16 object-contain"
                           />
                         ) : (
-                          <Rocket className="w-6 h-6 text-white" />
+                          <Rocket className="w-8 h-8 text-white" />
                         )}
-                      </div>
+            
                       <div>
                         <h3 className="font-bold text-lg text-white">{startup.name}</h3>
                         <p className="text-sm text-white/70">{startup.sector}</p>
