@@ -316,7 +316,7 @@ const StartupProfileTemplate: React.FC = () => {
                 Born from a real problem. Built with purpose.
               </p>
               <div className="text-lg text-gray-700 space-y-6 leading-relaxed">
-                <p >{startup.story}</p>
+                <p className="whitespace-pre-wrap break-words text-justify leading-7">{startup.story}</p>
                 {startup.problem && (
                   <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded">
                     <h3 className="font-semibold text-red-800 mb-2">The Problem</h3>
